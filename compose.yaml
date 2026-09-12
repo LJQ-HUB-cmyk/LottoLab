@@ -1,0 +1,56 @@
+name: lottolab
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: lottolab
+      POSTGRES_USER: lottolab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lottolab -d lottolab"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    image: lottolab:local
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      LOTTOLAB_DATABASE_URL: postgresql+psycopg://lottolab:${POSTGRES_PASSWORD}@db:5432/lottolab
+      LOTTOLAB_DATA_DIR: /data
+      LOTTOLAB_ADMIN_TOKEN: ${LOTTOLAB_ADMIN_TOKEN:?Set LOTTOLAB_ADMIN_TOKEN in .env}
+      LOTTOLAB_ALLOW_LOCAL_WRITES: "false"
+      LOTTOLAB_ALLOWED_ORIGINS: http://localhost:18080,http://127.0.0.1:18080
+      LOTTOLAB_ALLOWED_HOSTS: localhost,127.0.0.1,api
+    ports:
+      - "127.0.0.1:18080:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_data:/data
+    command: ["sh", "-c", "alembic upgrade head && uvicorn lottolab.app:create_app --factory --host 0.0.0.0 --port 8000 --no-proxy-headers"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  worker:
+    image: lottolab:local
+    environment:
+      LOTTOLAB_DATABASE_URL: postgresql+psycopg://lottolab:${POSTGRES_PASSWORD}@db:5432/lottolab
+      LOTTOLAB_DATA_DIR: /data
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - app_data:/data
+    command: ["python", "-m", "lottolab.worker"]
+volumes:
+  postgres_data:
+  app_data:

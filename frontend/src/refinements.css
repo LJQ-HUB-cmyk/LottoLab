@@ -1,0 +1,51 @@
+/* Shared adjustments following browser verification. */
+.conflict-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+.conflict-comparison > div {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-width: 0;
+}
+.conflict-comparison h4 {
+  font-size: 12px;
+  margin: 0 0 12px;
+  font-weight: 550;
+}
+.conflict-comparison small {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.quality-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+@media (max-width: 760px) {
+  .draw-feature-main .ball {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  .draw-feature-main .balls {
+    gap: 6px;
+  }
+  .conflict-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 380px) {
+  .draw-feature-main .ball {
+    width: 33px;
+    height: 33px;
+  }
+  .draw-feature-main .balls {
+    gap: 5px;
+  }
+}

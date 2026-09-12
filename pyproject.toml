@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lottolab"
+version = "1.0.0"
+description = "Reproducible lottery data and probability experiments"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.141.1", "uvicorn==0.52.4", "pydantic==2.13.5",
+  "pydantic-settings==2.15.0", "sqlalchemy==2.0.52", "alembic==1.20.0",
+  "psycopg[binary]==3.3.5", "httpx==0.28.1", "python-multipart==0.0.32",
+  "numpy==2.5.3", "scipy==1.18.1", "scikit-learn==1.9.1",
+  "beautifulsoup4==4.15.0", "tzdata==2026.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1", "mypy>=1.15,<2"]
+
+[project.scripts]
+lottolab = "lottolab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[tool.vercel]
+entrypoint = "app:app"
+
+[tool.vercel.scripts]
+build = "python scripts/build_vercel.py"
+
+[tool.vercel.fastapi.static]
+# Only the compiled assets directory is mounted; private data lives in PostgreSQL.
+cdn = true
