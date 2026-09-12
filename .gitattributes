@@ -1,0 +1,14 @@
+* text=auto eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.zip binary
+*.doc binary
+*.docx binary
+*.pdf binary
+*.cmd text eol=crlf
+# Preserve extracted reference material byte-for-byte, including original whitespace.
+docs/extracted/** -text -whitespace

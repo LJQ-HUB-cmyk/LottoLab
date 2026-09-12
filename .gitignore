@@ -1,0 +1,37 @@
+# Reproducible expanded originals; authoritative archive remains tracked.
+docs/source/
+
+# Runtime artifacts and credentials.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+.next/
+coverage/
+playwright-report/
+test-results/
+data/raw/
+data/processed/
+artifacts/
+*.log
+
+# Local editor files.
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+.local/
+.devtools/
+*.egg-info/
+*.tsbuildinfo
+frontend/.playwright/
+.vercel/
