@@ -1,6 +1,6 @@
 # LottoLab 1.0.0 发布与封板
 
-状态：1.0.0 运行与封板验收 PASS，正在完成主分支及不可变标签归档。正式入口为 https://lottolab-zeta.vercel.app；[v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 的实际发布状态作为版本归档的完成依据。
+状态：1.0.0 封板验收完成，源码已并入 main，主分支 CI 和 Git 自动部署复验通过。正式入口为 https://lottolab-zeta.vercel.app。固定标签、源码包和最终校验记录统一由 [v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 提供；该发布记录的成功状态为封板生效依据。
 
 ## 固定范围
 
@@ -25,6 +25,8 @@
 - 正式发布前 1,300 期开奖、10 条任务和全部原始快照完成只读备份与独立恢复；发布后旧记录逐条哈希一致。
 - 运行时源码指纹：925cfaf89cc014c21969914c66e7b0df60ca92a79c48ddf2671160659bbf915a。后续主分支发布只更新归档文档时，应保持同一算法源码指纹。
 - 详细记录见 [FINAL_AUDIT.md](FINAL_AUDIT.md) 和 [非敏感验收 JSON](docs/validation/2026-09-13-release.json)。原 0.1.0 验收记录保留为历史证据。
+
+主分支合并提交 5140b0fad5827ab31ad357e22d1c2afa675d368b 的 [CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34715062726) 全部 PASS；Git 构建 dpl_6Vc519DoynYW6i4pUXHA9Dkw7qti 对应相同提交，真实模拟 9d74cf5c-0951-405a-b903-6dc6cc7e72bc 完成并持久保存。最后的封板提交只更新文档和证据；其标签提交、CI 及实际部署 ID 以 Release 附件为准，算法源码指纹保持上述值。
 
 ## 备份与恢复
 

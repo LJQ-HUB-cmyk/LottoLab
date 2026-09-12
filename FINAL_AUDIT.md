@@ -2,7 +2,7 @@
 
 日期：2026-09-13；版本：LottoLab 1.0.0；范围：PROJECT_SPEC.md。
 
-**1.0.0 的功能、真实云部署、容器、数据恢复和安全边界验收均 PASS。** 正式站为 [https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)。GitHub 主分支和不可变版本标签归档仍在本次发布流程中，完成状态以 [v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 为准，TASKS.md 跟踪最后一步。
+**1.0.0 的功能、真实云部署、容器、数据恢复和安全边界验收均 PASS。** 正式站为 [https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)。源码已归档 GitHub 主分支，合并后的 CI 和 Vercel Git 自动部署复验均通过。封板提交的固定标签、源码包及最终提交/部署校验记录由 [v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 提供。
 
 本次没有增加新的产品功能或修改数据库 schema。现有 Vercel Hobby、两个独立 Neon Free 数据库和管理员令牌保留；没有付费升级。
 
@@ -52,6 +52,8 @@
 正式只读备份目录为 .local/backups/cloud-20260912T185552Z-8cfd204d/。lottolab.db 和 restore-check.db 各 3,260,416 字节，SHA-256 均为 8acebfb6ff9ee0110fd626fa8efdce09af314b5071b671b517f120e287f3496f。备份没有连接配置或管理员令牌，部署者应单独私密保管配置。恢复必须先在独立目标验证，不能将首次迁移指向已含数据的正式库。
 
 旧正式 0.1.0 部署 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb 为本次回滚目标。当前无 schema 变更；代码回滚保留数据库。完整操作见 [RELEASE.md](RELEASE.md) 和 [运行维护](docs/OPERATIONS.md)。
+
+主分支 5140b0fad5827ab31ad357e22d1c2afa675d368b 的 [CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34715062726) 三组全部成功。Vercel Git 自动部署 dpl_6Vc519DoynYW6i4pUXHA9Dkw7qti 对应该提交，新增模拟 9d74cf5c-0951-405a-b903-6dc6cc7e72bc 在真实云端完成并重新读取；初次正式浏览器模拟和两个彩种历史继续保留。正式任务数因此从 11 增为 12。最终标签提交和部署的校验摘要随 GitHub Release 提供。
 
 ## 已完成的产品范围
 

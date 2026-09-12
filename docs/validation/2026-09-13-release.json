@@ -10,10 +10,18 @@
     "repository": "https://github.com/LeilaoMi/lottery-design"
   },
   "publication": {
-    "status": "PENDING_MAIN_AND_TAG",
+    "status": "MAIN_COMMIT_VALIDATED",
     "pull_request": "https://github.com/LeilaoMi/lottery-design/pull/1",
     "tag": "v1.0.0",
-    "release_url": "https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0"
+    "release_url": "https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0",
+    "merged_commit": "5140b0fad5827ab31ad357e22d1c2afa675d368b",
+    "main_ci": {
+      "status": "PASS",
+      "run_id": 34715062726,
+      "url": "https://github.com/LeilaoMi/lottery-design/actions/runs/34715062726",
+      "commit": "5140b0fad5827ab31ad357e22d1c2afa675d368b"
+    },
+    "final_receipt": "GitHub Release attachments record the final tag commit, CI and production deployment."
   },
   "ci": {
     "status": "PASS",
@@ -634,6 +642,35 @@
         }
       },
       "status": "PASS"
+    },
+    "main_git_deployment": {
+      "status": "PASS",
+      "checked_at": "2026-09-12T19:47:44.042858+00:00",
+      "url": "https://lottolab-zeta.vercel.app",
+      "deployment_id": "dpl_6Vc519DoynYW6i4pUXHA9Dkw7qti",
+      "deployment_url": "https://lottolab-lvv57n61x-wouuify23-7389s-projects.vercel.app",
+      "git_commit": "5140b0fad5827ab31ad357e22d1c2afa675d368b",
+      "code_fingerprint": "925cfaf89cc014c21969914c66e7b0df60ca92a79c48ddf2671160659bbf915a",
+      "version": "1.0.0",
+      "checks": [
+        "release_version_and_private_access",
+        "pre_merge_release_result_survived",
+        "both_lottery_histories_retained",
+        "git_deployment_computation_persisted"
+      ],
+      "index_sha256": "f3a74f4e297ff4448acaa83a797a388630f2bb753ed353290c543a9f0775c3c9",
+      "job_id": "9d74cf5c-0951-405a-b903-6dc6cc7e72bc",
+      "execution": {
+        "code_fingerprint": "925cfaf89cc014c21969914c66e7b0df60ca92a79c48ddf2671160659bbf915a",
+        "rule_version": "ssq-number-space-v1",
+        "python": "3.12.14",
+        "packages": {
+          "lottolab": "1.0.0",
+          "numpy": "2.5.3",
+          "scipy": "1.18.1",
+          "scikit-learn": "1.9.1"
+        }
+      }
     }
   },
   "dependency_checks": {

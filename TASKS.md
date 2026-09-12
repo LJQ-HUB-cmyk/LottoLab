@@ -1,20 +1,22 @@
 # 任务与恢复状态
 
-## 当前任务：v1.0.0 最终封板
+## 已完成：v1.0.0 最终封板验收
 
-用户已要求按最终封板推进。1.0.0 已完成独立预览和正式部署验收；代码在 codex/final-release，PR #1。三组远程 CI、云备份恢复和原记录完整性均 PASS，等待主分支归档及版本发布。
+1.0.0 的独立预览、正式部署、三组远程 CI、云备份恢复和原记录完整性均 PASS。PR #1 已合并 main，主分支 CI 与 Git 自动部署复验通过。功能开发已按当前规格封板；固定标签、版本包和最终发布凭据以 GitHub v1.0.0 Release 的成功记录为准。
 
 - [x] T110：核对产品/科学/安全边界，统一 1.0.0 版本，清除当前文档中与线上状态冲突的旧表述。
 - [x] T111：完善 Linux 容器非空数据及任务重启验证，提交并推送最终代码，取得真实 GitHub Actions 后端/PostgreSQL/浏览器/容器 PASS。
 - [x] T112：生产数据库只读备份，独立空库恢复及逐表/原始快照校验 PASS。入口为 scripts/backup_cloud.py；本次备份含 1,300 开奖、10 任务、4 导入、2 冻结数据集和 4 快照，独立恢复文件 SHA-256 一致，正式库未写入。
 - [x] T113：最终预览部署、正式发布与版本/计算/历史持久化检查，保留回滚目标与原生产数据。
-- [ ] T114：源码并入主分支、发布版本标签与 Release，更新封板记录和最终证据；实际完成后标记封板。
+- [x] T114：源码并入主分支、主分支 CI/自动部署复验完成，封板验收证据已归档。本封板提交用于固定 v1.0.0 标签；版本包和最终发布结果单独以 [Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 及其校验附件为准。
 
 封板前云部署和旧本地阶段的记录如下，原有 PASS/失败历史保持可追溯；尚未执行的封板检查不提前标为通过。
 
 封板验收证据：[Actions 34713631649](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649) 对 6bc8c505c07b741146eaab831c7a227e9a6330fb 的 backend/browser/container 全部 PASS；89 项 pytest、7 条浏览器流程及 PostgreSQL 集成通过。首次 Linux mypy 失败已修复为明确平台分支，并通过 Windows/Linux 类型检查与 20 项进程回归。正式 1.0.0 部署 dpl_ABXUyTssffK1ufp68BkmQvgaTM4p，回滚目标 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb；两站各 14 项浏览器验收通过，部署错误/5xx 为 0。发布前全部原记录逐条哈希一致，正式新增 1 条验收模拟后共 11 任务，预览新增 5 条后共 23 任务。非敏感证据见 docs/validation/2026-09-13-release.json。
 
 更新：2026-09-13。用户已授权 LottoLab 业务开发，并选择“电脑关机后完整使用，优先免费云服务”。**免费云正式部署与真实 Vercel 验收已完成：https://lottolab-zeta.vercel.app。** 下方首版本地验证属于云改造前的基线。本地启动入口 Start-LottoLab.cmd；本次线上验收时本机 API/worker 未运行。
+
+主分支归档证据：5140b0fad5827ab31ad357e22d1c2afa675d368b；[CI 34715062726](https://github.com/LeilaoMi/lottery-design/actions/runs/34715062726) 三组 PASS；实际 Git 部署 dpl_6Vc519DoynYW6i4pUXHA9Dkw7qti，云模拟 9d74cf5c-0951-405a-b903-6dc6cc7e72bc 完成并保存。正式库为 1,300 开奖、12 任务，预览库 1,301 开奖、23 任务；旧记录仍保留。最终标签提交/CI/部署记录以 Release 附件为准。
 
 ## 历史阶段：0.1.0 免费云部署（已完成）
 
@@ -113,10 +115,10 @@ Docker 问题是遗留通信文件无法访问。第一处临时目录已备份�
 ## 继续时先做什么
 
 1. 读取本文件、FINAL_AUDIT.md 与实际 Git/运行状态。
-2. T110–T113 已通过，完成 T114 的主分支、标签和 Release 归档。已有 CLI 登录、Vercel 项目与 Neon Free 资源，无需重新确认条款或重复创建。
+2. 先核对 v1.0.0 Release、实际线上版本和用户的新需求；当前功能已封板，不自动增加范围。已有 CLI 登录、Vercel 项目与 Neon Free 资源，无需重新确认条款或重复创建。
 3. 后续修改按 docs/CLOUD_DEPLOYMENT.md 显式部署 preview，验证后再更新 production。两库已含真实数据，不能重新执行首次空库迁移 --apply；需要 schema 更新时使用单独审阅的增量迁移。
 4. 本地入口仍是 Start-LottoLab.cmd，服务状态须实查。Docker 故障不阻塞云方案，不重试被策略拒绝的清理。
-5. 修改后只运行相应检查；未改业务代码不重跑科学实验。发布使用 codex/final-release → main，原始 LICENSE/ZIP 保留；仅使用命令级 safe.directory。main 为 Vercel 生产分支，合并后核对实际构建和 CI。
+5. 修改后只运行相应检查；未改业务代码不重跑科学实验。当前主分支 main，原始 LICENSE/ZIP 保留；仅使用命令级 safe.directory。后续从 main 建新分支，通过 PR/CI/独立预览后发布新补丁，不覆盖旧标签。main 为 Vercel 生产分支，合并会自动部署。
 
 旧全局配置工作已经结束，当前只聚焦彩票项目。当前 Docker/Linux、GitHub CI 和公网服务均已有各自真实证据，不能把它们写成本机 Docker Desktop 已恢复。
 

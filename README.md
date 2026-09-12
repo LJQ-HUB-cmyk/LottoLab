@@ -8,7 +8,7 @@
 
 2026-09-13 封板验收：**[GitHub CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649) 三组检查全部通过，89 项后端测试含真实 PostgreSQL，7 条浏览器流程通过，Docker 重建保留非空数据、任务、审计和原始快照**。v1.0.0 预览与正式站均完成八页面、云端计算、刷新恢复与 390px 布局检查。正式数据库的 1,300 期开奖、10 条发布前任务及全部快照完成只读备份和独立恢复，发布后原记录逐条保持一致。见 [封板证据](docs/validation/2026-09-13-release.json)、[最终验收](FINAL_AUDIT.md) 和 [发布说明](RELEASE.md)。
 
-云端采用 **Vercel Hobby + Neon Free PostgreSQL**，不依赖本机 API、worker 或 Docker，已在本机服务关闭时完成公网验收。Cloudflare 可选用于已有域名，当前默认网址已带 HTTPS。部署步骤、免费额度和当前限制见 [免费云部署](docs/CLOUD_DEPLOYMENT.md)。源码和真实 CI 已在 GitHub 归档；版本标签与发布状态见 [GitHub Releases](https://github.com/LeilaoMi/lottery-design/releases)。容器交付已在独立 Linux runner 验收；本机 Docker Desktop 的历史故障仍保留，默认本地启动和云端均不依赖它。
+云端采用 **Vercel Hobby + Neon Free PostgreSQL**，不依赖本机 API、worker 或 Docker，已在本机服务关闭时完成公网验收。Cloudflare 可选用于已有域名，当前默认网址已带 HTTPS。部署步骤、免费额度和当前限制见 [免费云部署](docs/CLOUD_DEPLOYMENT.md)。源码和真实 CI 已在 GitHub 归档；固定版本与源码下载见 [v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0)，封板后按补丁版本维护。容器交付已在独立 Linux runner 验收；本机 Docker Desktop 的历史故障仍保留，默认本地启动和云端均不依赖它。
 
 ## 已实现功能
 
