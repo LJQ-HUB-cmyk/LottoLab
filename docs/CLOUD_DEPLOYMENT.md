@@ -1,6 +1,6 @@
 # 免费云部署
 
-更新：2026-09-13。**正式站已上线：[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)**，电脑关机后仍可查询数据、导入、运行实验和查看历史。Vercel Hobby 和两个独立的 Neon Free 数据库已配置完成；实际云端计算、浏览器和持久化验收通过。日常使用见 [线上使用说明](ONLINE_ACCESS.md)，证据见 [云验收记录](validation/2026-09-13-cloud.json)。以下安装和迁移步骤供恢复/维护参考，当前无需重新执行。
+更新：2026-09-13。**正式站已上线：[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)**，电脑关机后仍可查询数据、导入、运行实验和查看历史。Vercel Hobby 和两个独立的 Neon Free 数据库已配置完成；1.0.0 实际云端计算、浏览器、备份恢复和持久化验收通过。日常使用见 [线上使用说明](ONLINE_ACCESS.md)，当前证据见 [封板验收](validation/2026-09-13-release.json)，首次云上线的历史证据见 [云验收记录](validation/2026-09-13-cloud.json)。以下安装和迁移步骤供恢复/维护参考，当前无需重新执行。
 
 ## 服务分工与免费范围
 
@@ -124,9 +124,9 @@ SQLite 不保存时区信息，来源中的 UTC 时间会先恢复时区，再�
 ./.venv/Scripts/python.exe scripts/vercel_cli.py deploy --prod
 ```
 
-第一次部署也要显式使用 `--target preview`：CLI 对新项目的首次默认部署可能指向 production。本次正式部署为 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb，已通过公网验收。
+第一次部署也要显式使用 `--target preview`：CLI 对新项目的首次默认部署可能指向 production。v1.0.0 的正式配置部署 dpl_ABXUyTssffK1ufp68BkmQvgaTM4p 已通过公网验收。旧 0.1.0 部署 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb 保留为此次发布的回滚目标；无数据库 schema 变更。主分支后续触发的部署以 Vercel 控制台和 GitHub Release 的记录为准。
 
-本地 CLI 可部署当前本地代码。**当前代码已由 CLI 发布到 Vercel，但尚未提交/推送 GitHub；GitHub 仓库原始分支只有设计资料，直接导入该远程分支不会部署这些新增功能。** 后续把实现提交到获准的分支，才能使用现有 Git 集成进行推送自动部署。不要上传父工作区的 Codex 配置或备份。
+实现已提交到 GitHub，PR #1 的三组 CI 均通过。Vercel 现有 Git 集成关联 LeilaoMi/lottery-design，生产分支为 main；PR 更新会创建预览，合并 main 会触发正式构建。后续改动先通过 PR 的 CI 与独立预览验收，再合并发布；CLI 仍可手动发布。GitHub Actions 只使用临时测试数据库，不保存云数据库凭据。父工作区的 Codex 配置、私有备份和原始运行数据均排除在源码与上传之外。
 
 ## 线上验收与 Cloudflare 域名
 
@@ -148,7 +148,7 @@ SQLite 不保存时区信息，来源中的 UTC 时间会先恢复时区，再�
 
 ## 后续维护
 
-保持管理员令牌私密，必要时在 Vercel 中轮换并重新部署。定期查看 Vercel/Neon 用量；数据库免费额度不等同于独立离线备份。需要备份时使用 PostgreSQL 导出，或通过已验证的数据库迁移函数复制到专用备份库，不覆盖现有库。
+保持管理员令牌私密，必要时在 Vercel 中轮换并重新部署。定期查看 Vercel/Neon 用量；数据库免费额度不等同于独立离线备份。运行 `python scripts/backup_cloud.py` 可对正式库做只读一致性备份，并在新建 SQLite 文件验证独立恢复；原始压缩快照和全部表均参与指纹校验。脚本每次生成独立目录，不覆盖现有库。完整恢复和回滚步骤见 [发布说明](../RELEASE.md)。
 
 未来 schema 变动按审阅后的 Alembic 迁移单独执行，确认兼容性后部署；不把生产迁移放进每次构建或函数冷启动。CPU 长任务、多人使用或超过免费额度后需要另行评估运行方式。
 

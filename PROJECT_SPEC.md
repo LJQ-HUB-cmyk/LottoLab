@@ -1,6 +1,6 @@
 # LottoLab 产品与工程规格
 
-版本：0.1 实现规格及免费云扩展，2026-09-13。用户已选择电脑关机后仍可使用、优先免费云服务。Vercel Hobby + Neon Free 已完成正式部署，实际验证状态见 FINAL_AUDIT.md 和 TASKS.md。初始方案取舍见 docs/IMPLEMENTATION_NOTES.md。
+版本：1.0.0 封板验收范围，2026-09-13。用户已选择电脑关机后仍可使用、优先免费云服务。Vercel Hobby + Neon Free 已完成正式部署，实际验证状态见 FINAL_AUDIT.md 和 TASKS.md。初始方案取舍见 docs/IMPLEMENTATION_NOTES.md。
 
 ## 产品目标
 

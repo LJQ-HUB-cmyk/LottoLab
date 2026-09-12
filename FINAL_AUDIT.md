@@ -1,99 +1,73 @@
 # 最终验收记录
 
-本地基线日期：2026-09-12；免费云更新：2026-09-13；版本：LottoLab 0.1.0。
+日期：2026-09-13；版本：LottoLab 1.0.0；范围：PROJECT_SPEC.md。
 
-**免费云正式部署与实际公网验收已通过：[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)。** Vercel Hobby 提供网页和计算，Neon Free 保存数据；本机 API/worker 均关闭时仍完成了云端计算与结果恢复。完整容器交付验收仍受本机 Docker 环境阻塞，云方案不依赖 Docker。默认本地启动器 Start-LottoLab.cmd 使用 SQLite，原 PostgreSQL 卷保留。
+**1.0.0 的功能、真实云部署、容器、数据恢复和安全边界验收均 PASS。** 正式站为 [https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)。GitHub 主分支和不可变版本标签归档仍在本次发布流程中，完成状态以 [v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 为准，TASKS.md 跟踪最后一步。
 
-## 免费云验证
+本次没有增加新的产品功能或修改数据库 schema。现有 Vercel Hobby、两个独立 Neon Free 数据库和管理员令牌保留；没有付费升级。
 
-| 项目 | 结果 | 实际证据与范围 |
+## 当前版本验收
+
+| 检查 | 结果 | 实际证据与范围 |
 |---|---|---|
-| 后端完整回归 | PASS | 88/88，24.28 秒，含 PostgreSQL 17.10；.local/pytest-cloud-results.xml |
-| Python lint / 格式 / 类型 | PASS | 新增入口与子进程相关文件 Ruff/格式通过，mypy 19 个后端源文件通过 |
-| 前端与云构建脚本 | PASS | 本地以及真实 Vercel 构建完成，pnpm 11.19.0 冻结安装、TypeScript/Vite |
-| 本地浏览器基线 | PASS | 原生 6/6、云模式 1/1；独立 E2E 库与请求内计算 |
-| 数据迁移往返与并发 | PASS | PostgreSQL 17.10 非 UTC 时区往返、两个独立应用争用单任务；.local/cloud-validation/pg-98a54b955a9d4e62bb123b0ae4719302/verification.json |
-| Linux 依赖 | PASS（实际运行） | Vercel Python 3.12.14、NumPy 2.5.3、SciPy 1.18.1、scikit-learn 1.9.1；源码和依赖版本保存到实验 |
-| Vercel / Neon 账号配置 | PASS | Hobby 项目 lottolab，两个环境独立的 Neon free_v3 数据库，连接 TLS，管理员令牌为 Secret |
-| 正式 Neon 数据迁移 | PASS | 1,300 开奖、9 实验、4 导入、2 冻结数据集、4 原始快照逐表指纹一致；.local/cloud-config/production-migration.json |
-| 预览 API 计算与导入 | PASS | 模拟、回测、随机性和覆盖均完成并重新读取；1,000 条 CSV 往返全为重复，无拒绝/冲突 |
-| 默认规模四模型回测 | PASS | 120 期测试、500 期训练窗口、2,000 次 bootstrap，17.22 秒完成；运行 ID 863a237a-09ff-4b0f-aab2-40fe24b209ff |
-| 预览/正式公网浏览器 | PASS | 两个环境各 14 项检查：八页面、令牌验证、彩种隔离、提交模拟、刷新读取历史、390px 布局，零 JS 异常 |
-| 正式 HTTPS 与权限 | PASS | 公共页面和 3 个静态资源可访问，静态缓存 immutable；私有查询/导出/计算匿名 403，已授权查询 no-store |
-| 正式云端计算 | PASS | 模拟 e4a44dc1-de4c-4340-ad33-97c8b8bab33e 通过浏览器提交、完成、刷新后重新鉴权及读取 |
-| 云端公开来源 | PASS（备用源） | iad1 官方接口暂不可用，SSQ/DLT 备用源各收录/核对 30 期，来源和提示如实保留；仅预览库新增一期 DLT |
-| 全部原记录与快照 | PASS | 最终复核保留本机来源及迁入原记录；正式 4 份、预览 7 份快照全部解压校验；.local/cloud-config/final-integrity-verification.json |
-| 正式部署运行日志 | PASS | 当前部署最近 30 分钟错误记录为 0；.local/cloud-config/production-runtime-log-verification.json |
-| 本机服务独立性 | PASS | 无本项目 API/worker 进程，8000/8011/8012 均未监听时完成公网验收；没有使用端口转发 |
-| 实际关机/手机实机网络 | SKIPPED | 未关闭用户电脑或控制手机；移动端使用真实 Chromium 的 390px 视口验证 |
+| GitHub 全新 Linux CI | PASS | [34713631649](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649)，源码 6bc8c505c07b741146eaab831c7a227e9a6330fb，backend/browser/container 全部成功 |
+| 完整后端测试 | PASS | 89/89，0 失败、0 跳过，19.628 秒；包含真实 PostgreSQL 测试 |
+| Python lint/格式/类型 | PASS | CI Ruff、格式、mypy；本地另外以 Linux/win32 类型目标检查全部 19 个后端文件 |
+| 进程监管回归 | PASS | 20/20，20.89 秒；真实子进程、宿主入口隔离、超时、取消与结果保存 |
+| PostgreSQL 集成脚本 | PASS | 迁移、号码约束、幂等、跨彩种唯一性、审计修订、冻结数据；临时 schema 自行清理 |
+| 前端与两类浏览器流程 | PASS | 冻结安装、Prettier、TypeScript/Vite；本地 worker 6 条 + 云请求模式 1 条 |
+| 最终 Docker 镜像 | PASS | 独立 Linux runner 构建并启动 PostgreSQL/API/worker，使用私有临时配置 |
+| 容器重建持久化 | PASS | SSQ/DLT 各 100 期 synthetic；CSV/审计指纹、真实 worker 结果和 2 份原始快照在保留卷重建后相同 |
+| Python 依赖一致性 | PASS | CI pip check；锁定 49 个 Python 包的 OSV 查询未发现已知漏洞 |
+| 前端生产依赖检查 | PASS | pnpm audit --prod：45 个依赖，0 已知漏洞 |
+| 版本与凭据检查 | PASS | Python、前端、安装元数据、uv.lock 都为 1.0.0；候选源文件未发现项目密钥或私有运行目录 |
+| 正式云备份与独立恢复 | PASS | 只读复制 1,300 开奖、10 任务、4 导入、2 冻结数据集、4 快照；两份 SQLite 完整性、逐表指纹和文件 SHA-256 一致 |
+| 独立预览四类计算 | PASS | 模拟、四模型回测、随机性、覆盖 3.09–4.48 秒完成，重新读取与执行版本/源码指纹一致 |
+| 两站真实浏览器 | PASS | 每站 14 项检查：八页面、拒绝无效令牌、彩种隔离、提交模拟、刷新鉴权和结果恢复、390px 布局、0 JS 异常 |
+| 正式数据与隐私 | PASS | 正式 1,000 SSQ + 300 DLT；历史实验版本保留，查询/CSV 为 no-store，匿名私人读写/导出 403 |
+| 发布前全部原记录 | PASS | 两库逐表、逐条哈希对比；旧记录和嵌入快照未改变，新增验收实验留档 |
+| 部署日志 | PASS | 指定当前预览/正式部署的近 1 小时查询：error 条目 0，5xx 响应 0；仅代表该检查窗口 |
+| 本机服务独立性 | PASS | 8000/8011/8012 均未监听时完成真实公网 API 和计算流程 |
+| 实际关机、手机实机 | SKIPPED | 未关闭用户电脑或操作物理手机；使用真实 Chromium 的 390px 视口验证 |
+| 本机 Docker Desktop 修复 | BLOCKED（本机环境） | 历史通信文件故障仍在，未重试此前被策略拒绝的清理；不影响已通过的 Linux 容器和云部署验收 |
 
-数据迁移修复 SQLite 无时区时间被 PostgreSQL 非 UTC 会话重新解释的问题，往返保持原始时刻及历史代码指纹；gzip 损坏检测包含无效 DEFLATE。云端实际运行还修复了源码路径、静态目录和计算子进程重复导入宿主启动程序的问题，并让源码版本记录不依赖已安装 distribution。相关 20 项回归与完整 88 项测试通过。
+首次 CI 的 Linux mypy 检查到了 Windows 专有 CREATE_NO_WINDOW 常量，已改用明确的 sys.platform 分支并完整复验。原始失败记录保留为 Actions 34713101518，没有删除测试、降低断言或隐藏失败。
 
-正式与预览使用独立数据库和令牌，构建不执行数据库迁移，原始快照压缩入库。CLI 包装脚本修复 Windows 参数转义与全局参数顺序问题。固定 CLI 的 curl 对 --global-config 支持有缺陷，本次按官方自动化访问机制取得保护会话，未关闭预览保护。
+上游测试客户端仍报告 Starlette/httpx 与 anyio 的两条弃用警告，不影响当前通过结果；未为隐藏警告更换未经验证的依赖。
 
-正式部署 ID 为 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb；已验收预览 ID 为 dpl_2dqatH7GEJhhgSFYv8gr4A4rxuwq。初始云启动失败由新部署替换，预览失败任务保留。最终正式库有 1,300 开奖、10 任务，预览库有 1,301 开奖、18 任务；其中迁入的原 9 条任务和全部其他原记录均保持一致。数据库物理大小分别约 9.86 MB、10.49 MB，两个资源再次确认是 free_v3 / Free。
+## 发布、数据和恢复
 
-非敏感结果汇总在 [云验收 JSON](docs/validation/2026-09-13-cloud.json)，使用方式在 [线上使用说明](docs/ONLINE_ACCESS.md)。运行时源码指纹为 8fc12fc7c54b4917ce5eb437a48ddd3bb9b6c20c97e13412ebaa4fe8e01bcd79；旧实验仍保留自己的原指纹。源码尚未推送 GitHub，不宣称远程 CI 已通过。
+本次已验收预览为 dpl_B7FuuvxfMRQu6zyG8czyYhTiHnYL；正式配置部署为 dpl_ABXUyTssffK1ufp68BkmQvgaTM4p。实际部署地区 iad1、Python 3.12.14；两个环境使用独立数据库和令牌，预览保护保持启用。
 
-以下保留云改造前的本地基线，不将历史 PASS 当作当前容器或线上结果。
+后端源码指纹：
 
-## 完成的产品流程
+```text
+925cfaf89cc014c21969914c66e7b0df60ca92a79c48ddf2671160659bbf915a
+```
 
-SSQ/DLT 历史数据导入、校验、分页查询、来源追溯、冲突隔离与修订、统计与随机性检验、四模型滚动回测、模拟、组合覆盖和实验历史都已连接真实 API。前端含八个中文页面、移动端和深色模式。实验任务持久化，结果可查看或导出。
+预览四类实验与正式浏览器模拟 6e0143e5-ecb1-4823-b19b-bc866a3ac6d2 均保存版本 1.0.0、该指纹以及实际 NumPy/SciPy/scikit-learn 版本。历史回测仍保存原指纹 22285223d60062c6c7b22a544073f6c2ff19075c6822167ab30e4e56e09de698。
 
-本次改正了修订审计遗漏保留财务字段的问题，记录最终入库值，并为冻结数据保留来源导入 ID。最终备份全量检查还发现清单曾包含会消失的 WAL/SHM 临时文件，已修正为关闭连接后生成清单，并增加独立进程回归测试。补齐形态/分区/共现展示、所有任务执行版本记录，以及不同模型选择组合不影响已有模型的随机种子分配。
+发布前逐条基线为正式 1,300 开奖/10 任务、预览 1,301 开奖/18 任务。本次验收后分别为 11 和 23 个任务，新增任务完整保留。原开奖、导入、冻结数据、快照和历史任务未变。公开 JSON 仅包含非敏感证据，不包含数据库副本、管理员令牌或部署认证。
 
-## 实际检查
+正式只读备份目录为 .local/backups/cloud-20260912T185552Z-8cfd204d/。lottolab.db 和 restore-check.db 各 3,260,416 字节，SHA-256 均为 8acebfb6ff9ee0110fd626fa8efdce09af314b5071b671b517f120e287f3496f。备份没有连接配置或管理员令牌，部署者应单独私密保管配置。恢复必须先在独立目标验证，不能将首次迁移指向已含数据的正式库。
 
-| 项目 | 结果 | 实际证据与范围 |
-|---|---|---|
-| 后端行为/边界/失败/防泄漏测试 | PASS | 最终 pytest：55 passed，4.23 秒，.local/pytest-results.xml |
-| Python lint 与格式 | PASS | Ruff 检查 backend、tests、scripts、migrations |
-| 后端类型检查 | PASS | mypy：15 个源文件，无问题 |
-| 依赖一致性 | PASS | pip check：No broken requirements found |
-| 前端格式 | PASS | Prettier 检查源码、E2E 与配置 |
-| TypeScript 与生产构建 | PASS | tsc + Vite，包含 charts 独立包，最终无空 chunk 警告 |
-| 浏览器全流程 | PASS | 最终一次 Playwright 6/6，26.2 秒 |
-| 桌面与手机实测 | PASS | 真实数据、模型与统计；390px 页面无整体横向溢出，深色结构页正常，无 JS 异常 |
-| SQLite 空库迁移 | PASS | E2E 每次创建隔离新库，执行两条迁移并导入 |
-| 本地启动/重复启动/停止/重启 | PASS | 启动器确认 API+worker 就绪，复用已有服务，停止后自身进程树退出，再启动正常 |
-| SQLite 持久化 | PASS | 1,000 SSQ + 300 DLT、重启前 4 条已完成任务、4 份原始快照不变，完整性检查通过 |
-| 初始配置生成 | PASS | 在隔离目录生成 SQLite 和 PostgreSQL 配置，令牌/密码非空，重复执行保留文件，未更改当前配置 |
-| SQLite 备份 | PASS | 一致性备份、完整性检查、原始文件及 SHA-256 清单 |
-| PostgreSQL 集成 | PASS（此前） | 迁移两次、号码约束、幂等、跨彩种唯一性、审计修订、冻结版本；公共库前后 1,300 条 |
-| Docker 镜像/服务 | PASS（此前版本） | 之前完成镜像构建和服务启动；此项不代表当前源码最终容器通过 |
-| 当前源码 Docker 完整复验 | BLOCKED | Docker Desktop 无法启动，最终构建、鉴权/worker smoke 及保留卷重启未通过 |
-| GitHub Actions | SKIPPED | 工作流已配置，未推送运行 |
-| 公开部署（本地基线时点） | SKIPPED | 9 月 12 日基线尚未发布；9 月 13 日云验收结果见上方 |
-| 原始材料保护 | PASS | LICENSE 和预测项目.zip 相对 HEAD 无差异；工作区 diff --check 通过 |
+旧正式 0.1.0 部署 dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb 为本次回滚目标。当前无 schema 变更；代码回滚保留数据库。完整操作见 [RELEASE.md](RELEASE.md) 和 [运行维护](docs/OPERATIONS.md)。
 
-上游 Starlette/httpx 测试客户端产生两条弃用警告，未影响测试通过；没有通过删断言、关闭核心检查或伪造结果消除失败。
+## 已完成的产品范围
 
-六条浏览器流程覆盖：查询/分页/彩种隔离；CSV 幂等与非法行复核/对话框键盘；四模型任务及报告下载；模拟与覆盖；分区/共现/随机性结果；手机导航/深色/服务错误恢复。测试库独立于真实数据。
+SSQ/DLT 历史导入、来源与快照、校验/冲突修订、CSV、统计与随机性研究、四模型滚动回测、Monte Carlo、组合覆盖、实验历史与结果导出均通过真实 API 连接八个中文页面。本地 SQLite、Docker/PostgreSQL 和免费云部署均有各自验收证据。
 
-## 真实数据与实验
+科学结果不随版本号重新编造。SSQ 120 期和 DLT 60 期回放、150 项校正的随机性检查、区间与覆盖分母仍见 [SCIENTIFIC_AUDIT.md](SCIENTIFIC_AUDIT.md)。这些窗口未给逻辑回归或树模型产生显著优势结论；结论不能外推为保证随机或保证盈利。
 
-当前 SQLite 保存 1,300 条真实记录。官方原始响应校验后恢复导入，未加入合成记录填空。日期范围、来源和五条最终运行的参数/版本/结果见 [结构化证据](docs/validation/2026-09-12.json) 与 [科学审计](SCIENTIFIC_AUDIT.md)。
+首次云版的默认 120 期四模型回测实测 17.22 秒、CSV 往返及备用来源同步证据保留在 [0.1.0 云验收](docs/validation/2026-09-13-cloud.json)；本地安装/停止/重启和最初实验见 [本地历史记录](docs/validation/2026-09-12.json)。历史记录中的“未推送”或“未发布”仅描述当时状态，不是本版本状态。
 
-SSQ 120 期与 DLT 60 期回放均未给逻辑回归或树模型产生显著优势结论，频率模型的 Brier 较差。该结论只限这些窗口。300 期随机性检验经 150 项校正后未显著；模拟中的不利偏离、名义区间和覆盖前提如实保留。
+## 固定边界
 
-截图位于本机 .local/：dashboard-desktop.png、dashboard-mobile.png、backtest-desktop.png、dlt-backtest-desktop.png、structure-desktop.png、structure-mobile-dark.png、randomness-desktop.png。完整报告在 .local/reports/。
+- 免费云同时最多一项任务，单项最多 240 秒；CSV 最多 4 MiB、10,000 行。未做长期高并发承诺。
+- 记录更新由用户点击同步；未配置定时无人值守同步。iad1 的官方接口此前不可达，已验证并标注 500 备用源。
+- 不保证完整历史、完整节假日开奖日历或所有修订的发布时点；真实与 synthetic 数据始终分开。
+- 固定超参数的探索性回测，不包含自动调参、独立校准器或预登记确认性试验；多重校正按次实验处理。
+- SSQ ROI 需要可追溯历史奖金且使用税前口径；DLT 与演示数据禁用 ROI。
+- 当前为个人管理令牌模式，无多用户账户；无持续无人值守运维监控。Cloudflare 仅为可选 DNS。
 
-## Docker 阻塞与替代交付
-
-恢复会话时 Docker Desktop 的旧通信文件无法访问，出现 dockerInference 和 docker-secrets-engine/engine.sock 启动错误。第一处临时目录保留了备份；第二处清理命令被自动审批审查拒绝，返回 blocked by policy，未执行。没有删除数据库卷、重置 Docker 或修改系统代理。
-
-本机 .env 已在私有备份后切到 SQLite。从四份官方快照恢复数据，再运行真实实验、本地重启和备份验收，保证当前应用可用。PostgreSQL 旧数据及实验仍在其原有卷中；两种数据库不会自动合并。
-
-Docker Desktop 恢复后，应按 docs/OPERATIONS.md 构建最终源码，运行 check_container.py，保留卷重启，再运行 --after-restart。完成前 P8 保持 PARTIAL/BLOCKED。
-
-## 明确限制
-
-- 没有完成全历史/完整节假日日历核对，也没有完整的历史修订公布时点档案。
-- 首版为固定参数的探索性回放，没有自动调参、独立校准器或预登记不可重复访问的确认性检验区。
-- 多重校正按次实验进行，不涵盖所有历史搜索。
-- SSQ ROI 依赖可追溯的当期每注奖金且采用税前口径；DLT 和演示数据禁用 ROI。
-- 没有做长期高并发压力测试、多用户或公网运维验收。
-- 没有提交/推送代码，没有获得远程 CI 或公网部署结果。
-
-这些边界是交付状态的一部分。默认本地流程可用，环境阻塞不被记为通过。
+详细当前证据见 [封板 JSON](docs/validation/2026-09-13-release.json)。验收结论按以上明确范围成立，后续修复通过新补丁版本发布并保留旧标签。

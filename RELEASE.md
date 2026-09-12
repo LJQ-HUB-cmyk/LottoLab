@@ -1,6 +1,6 @@
 # LottoLab 1.0.0 发布与封板
 
-状态：封板验收进行中，尚未发布版本标签。用户于 2026-09-13 要求完成当前产品范围的最终封板。
+状态：1.0.0 运行与封板验收 PASS，正在完成主分支及不可变标签归档。正式入口为 https://lottolab-zeta.vercel.app；[v1.0.0 Release](https://github.com/LeilaoMi/lottery-design/releases/tag/v1.0.0) 的实际发布状态作为版本归档的完成依据。
 
 ## 固定范围
 
@@ -16,6 +16,15 @@
 - 正式数据库只读备份并恢复到独立本地空库，逐表指纹和完整性通过；不覆盖正式或预览数据库。
 - 当前源码在独立预览环境验证后，以正式配置发布；核对版本、权限、计算、历史记录和回滚目标。
 - GitHub 主分支、不可变版本标签、发布记录及实际云端版本可相互追溯。最终证据见 FINAL_AUDIT.md 与 docs/validation/。
+
+## 本次验收证据
+
+- 候选源码 6bc8c505c07b741146eaab831c7a227e9a6330fb 的 [GitHub CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649) 全绿：89 项后端、真实 PostgreSQL、7 条浏览器流程、Docker 重建持久化。
+- Windows/Linux 类型检查与 20 项任务进程回归 PASS，修复了 Linux mypy 对 Windows 专用常量的误检查。
+- 预览 dpl_B7FuuvxfMRQu6zyG8czyYhTiHnYL、正式 dpl_ABXUyTssffK1ufp68BkmQvgaTM4p 的八页面、线上计算、刷新恢复和移动布局 PASS，运行日志未查到错误/5xx。
+- 正式发布前 1,300 期开奖、10 条任务和全部原始快照完成只读备份与独立恢复；发布后旧记录逐条哈希一致。
+- 运行时源码指纹：925cfaf89cc014c21969914c66e7b0df60ca92a79c48ddf2671160659bbf915a。后续主分支发布只更新归档文档时，应保持同一算法源码指纹。
+- 详细记录见 [FINAL_AUDIT.md](FINAL_AUDIT.md) 和 [非敏感验收 JSON](docs/validation/2026-09-13-release.json)。原 0.1.0 验收记录保留为历史证据。
 
 ## 备份与恢复
 
@@ -37,10 +46,10 @@
 2. 等待三组 CI 检查通过；通过 `python scripts/vercel_cli.py deploy --target preview --yes` 验证独立预览环境。
 3. 对正式数据库执行上述只读备份；如有 schema 变更，单独评审向后兼容迁移。
 4. 通过 `python scripts/vercel_cli.py deploy --prod --yes` 使用正式环境配置发布，复核实际版本与核心流程。预览配置使用独立数据库，不能直接把预览环境提升为正式配置。
-5. 为已验收提交建立新的版本标签和 Release，记录部署 ID 与回滚目标。CI 不保存云数据库凭据，不在 PR 中自动发布正式环境。
+5. PR 的 CI 通过后合并 main，核对 Git 集成自动生成的正式构建；为已验收提交建立新的版本标签和 Release，记录部署 ID 与回滚目标。CI 不保存云数据库凭据，不在 PR 中自动发布正式环境。
 
 ## 回滚
 
-代码回滚使用 `python scripts/vercel_cli.py rollback <此前正式部署ID> --yes`，保留数据库和原始快照。发布时记录上一正式部署；执行前确认旧代码与当前 schema 兼容。本次封板没有数据库 schema 变更。回滚命令不用于恢复被覆盖的数据，数据恢复须先在独立目标验证。
+本次发布的旧 0.1.0 回滚目标为 `dpl_GSoE7kAMSrjvJJyJkSzsWyaxSefb`；已验收的 1.0.0 正式部署为 `dpl_ABXUyTssffK1ufp68BkmQvgaTM4p`。代码回滚使用 `python scripts/vercel_cli.py rollback <此前正式部署ID> --yes`，保留数据库和原始快照。发布时记录上一正式部署；执行前确认旧代码与当前 schema 兼容。本次封板没有数据库 schema 变更。回滚命令不用于恢复被覆盖的数据，数据恢复须先在独立目标验证。
 
 本机 Docker Desktop 历史故障单独保留；容器交付门槛由 GitHub 托管 Linux 环境的真实重建/持久化检查验收，不把本机环境记为已修复。

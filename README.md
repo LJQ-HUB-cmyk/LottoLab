@@ -1,14 +1,14 @@
 # LottoLab
 
-彩票历史数据、统计检验、时间序列回测与组合覆盖实验平台。首版 `0.1.0` 已在云端上线，也可在本机使用，支持双色球（SSQ）和大乐透（DLT），默认中文界面。
+彩票历史数据、统计检验、时间序列回测与组合覆盖实验平台。稳定版 `1.0.0` 已在云端上线，也可在本机使用，支持双色球（SSQ）和大乐透（DLT），默认中文界面。
 
 **线上入口：[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)**。打开后使用部署者保管的管理员令牌进入；本机私有配置 `.env.cloud.local` 中的 `LOTTOLAB_ADMIN_TOKEN` 保存了当前正式令牌。只复制该变量的值，不复制数据库连接。使用方法见 [线上使用说明](docs/ONLINE_ACCESS.md)。
 
 **这台电脑直接双击 `Start-LottoLab.cmd`，或打开 <http://127.0.0.1:8000>。** 启动器检查迁移、启动 API 和计算进程，并打开页面；保留启动窗口，按 `Ctrl+C` 停止。本次交付使用 SQLite，本机依赖、前端构建和真实数据已准备好。
 
-2026-09-13 最新验证：**88 项后端测试通过，预览和正式站均通过真实浏览器的八个页面、在线计算、刷新恢复与 390px 布局检查**。预览站四类计算和 CSV 往返通过；默认 120 期四模型回测约 17 秒完成。1,300 期开奖、9 条原历史任务及全部快照迁入 Neon，原记录指纹保持一致。证据见 [云验收记录](docs/validation/2026-09-13-cloud.json) 与 [最终验收](FINAL_AUDIT.md)。
+2026-09-13 封板验收：**[GitHub CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649) 三组检查全部通过，89 项后端测试含真实 PostgreSQL，7 条浏览器流程通过，Docker 重建保留非空数据、任务、审计和原始快照**。v1.0.0 预览与正式站均完成八页面、云端计算、刷新恢复与 390px 布局检查。正式数据库的 1,300 期开奖、10 条发布前任务及全部快照完成只读备份和独立恢复，发布后原记录逐条保持一致。见 [封板证据](docs/validation/2026-09-13-release.json)、[最终验收](FINAL_AUDIT.md) 和 [发布说明](RELEASE.md)。
 
-云端采用 **Vercel Hobby + Neon Free PostgreSQL**，不依赖本机 API、worker 或 Docker，已在本机服务关闭时完成公网验收。Cloudflare 可选用于已有域名，当前默认网址已带 HTTPS。部署步骤、免费额度和当前限制见 [免费云部署](docs/CLOUD_DEPLOYMENT.md)。本次从本地代码发布，GitHub 尚未推送，远程 CI 尚未运行；本机 Docker 最终复验仍受 Docker Desktop 故障阻塞。
+云端采用 **Vercel Hobby + Neon Free PostgreSQL**，不依赖本机 API、worker 或 Docker，已在本机服务关闭时完成公网验收。Cloudflare 可选用于已有域名，当前默认网址已带 HTTPS。部署步骤、免费额度和当前限制见 [免费云部署](docs/CLOUD_DEPLOYMENT.md)。源码和真实 CI 已在 GitHub 归档；版本标签与发布状态见 [GitHub Releases](https://github.com/LeilaoMi/lottery-design/releases)。容器交付已在独立 Linux runner 验收；本机 Docker Desktop 的历史故障仍保留，默认本地启动和云端均不依赖它。
 
 ## 已实现功能
 
@@ -101,7 +101,7 @@ docker compose up -d --build --wait
 
 新环境希望原生 API 连接本地 PostgreSQL 时，可在第一次生成配置时使用 `python scripts/bootstrap_env.py --postgres`。已有配置不会自动切换。**SQLite 与 PostgreSQL 是独立数据库，切换模式不会自动搬迁数据。**
 
-本机 PostgreSQL 配置备份、Docker 阻塞和持久化复验步骤见运行维护文档。当前默认启动方式不依赖 Docker。
+GitHub CI 已在独立 Linux 环境完成镜像构建、两个彩种各 100 期 synthetic 数据导入、真实 worker 计算和保留卷重建校验。本机 PostgreSQL 配置备份及本机 Docker 故障记录见运行维护文档。当前默认启动方式不依赖 Docker。
 
 ## 检查与备份
 
@@ -115,13 +115,15 @@ pnpm --dir frontend build
 pnpm --dir frontend exec playwright test
 pnpm --dir frontend exec playwright test --config playwright.cloud.config.ts
 ./.venv/Scripts/python.exe scripts/backup_local.py
+# 正式云库只读备份，并在独立本地空库验证恢复：
+./.venv/Scripts/python.exe scripts/backup_cloud.py
 ```
 
 浏览器测试创建独立 SQLite 库，本地 worker 流程使用 8011 端口，云端请求流程使用 8012 端口，不修改真实数据；两套报告分别保存在 `frontend/playwright-report/local` 与 `cloud`。Windows 优先使用已安装的 Edge；其他环境先在 `frontend` 运行 `pnpm exec playwright install --with-deps chromium`。
 
 真实 PostgreSQL 测试需要 `LOTTOLAB_TEST_DATABASE_URL` 指向专用本地实例；只创建和清理自身临时 schema。CI 已配置 PostgreSQL 17 服务。没有设置该变量时，这两项测试会明确 SKIPPED，不能把它记为 PostgreSQL 通过。
 
-备份脚本生成一致性数据库副本，并复制原始快照、私有 `.env`、校验清单到 `.local/backups/`。备份含管理员令牌，应存放在私有位置。恢复及 PostgreSQL 备份方法见运行维护文档。
+本地备份脚本生成一致性数据库副本，并复制原始快照、私有 `.env` 和校验清单，包含管理员令牌。云备份脚本读取 `.env.cloud.local`，以只读事务复制所有表及嵌入快照，再恢复到另一个新建 SQLite 文件；云备份不包含令牌和连接配置。两类备份都写入独立的 `.local/backups/` 子目录并应私下保管。恢复步骤见 [运行维护](docs/OPERATIONS.md) 和 [发布与恢复](RELEASE.md)。
 
 ## 工程与证据
 

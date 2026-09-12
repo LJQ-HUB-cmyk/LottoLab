@@ -1,6 +1,6 @@
 # 线上使用说明
 
-上线日期：2026-09-13。网址为 **[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)**。
+版本：1.0.0；上线与封板验收日期：2026-09-13。网址为 **[https://lottolab-zeta.vercel.app](https://lottolab-zeta.vercel.app)**。
 
 ## 第一次进入
 
@@ -31,4 +31,4 @@
 
 Cloudflare 目前无需配置。以后使用自己的域名时，再按 Vercel 控制台给出的记录绑定 Cloudflare DNS；默认网址已可直接使用。
 
-项目实现已从本机发布到 Vercel，尚未推送 GitHub。后续代码更新、重新部署、配置与维护步骤见 [免费云部署](CLOUD_DEPLOYMENT.md)，验收证据见 [云验收记录](validation/2026-09-13-cloud.json)。
+v1.0.0 已在正式站通过验收，源码和 CI 已归档 GitHub。版本标签与下载入口见 [GitHub Releases](https://github.com/LeilaoMi/lottery-design/releases)，备份和补丁发布见 [发布与恢复](../RELEASE.md)，验收证据见 [封板记录](validation/2026-09-13-release.json)。

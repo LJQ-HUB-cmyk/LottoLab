@@ -1,6 +1,6 @@
 # 本地运行与维护
 
-更新：2026-09-12。当前交付为 Windows + SQLite + 独立 API/worker。Docker 与 PostgreSQL 路径已建立，最终容器重启检查仍待本机 Docker 恢复。
+更新：2026-09-13，LottoLab 1.0.0。本地为 Windows + SQLite + 独立 API/worker；云端为 Vercel Hobby + Neon Free。Docker/PostgreSQL 镜像及重启持久化已在 GitHub Linux runner 验收，本机 Docker Desktop 故障仍保留。
 
 ## 启动与文件
 
@@ -36,7 +36,7 @@ pnpm --dir frontend dev
 
 API 为 8000，Vite 为 5173。后端改动后重启服务；生产前端改动后重新构建并刷新已打开的页面。
 
-公开域名、TLS、托管账号、多用户登录和运维监控尚未配置，本次没有公开部署。
+正式站为 https://lottolab-zeta.vercel.app，Vercel 默认域名带 HTTPS。云端私人读写均使用 .env.cloud.local 中的管理员令牌；多用户账户和持续无人值守监控未配置。免费云的使用与限制见 CLOUD_DEPLOYMENT.md。
 
 ## 任务与故障
 
@@ -77,7 +77,7 @@ docker compose up -d --wait
 ./.venv/Scripts/python.exe scripts/check_container.py --after-restart
 ```
 
-这里的 `down` 保留命名卷。首次检查验证前端、PostgreSQL、匿名写入拒绝、管理令牌及 worker 执行。第二次验证相同开奖总数与之前完成的任务，输出 `.local/container-verification.json`。当前未获得最终 PASS。
+这里的 `down` 保留命名卷。首次检查验证前端、PostgreSQL、匿名写入拒绝、管理令牌及 worker 执行。第二次验证相同开奖总数与之前完成的任务，输出 `.local/container-verification.json`。Linux 最终容器验收已在 [Actions](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649) 取得 PASS：SSQ/DLT 各 100 期 synthetic 数据、CSV/导入审计指纹、已完成结果及 2 份原始快照在重建后全部一致。本机仍未复验，不能把 Linux 结果写成本机 Docker 已修复。
 
 `bootstrap_env.py --postgres` 只影响新生成的配置，已有 `.env` 原样保留。切换连接前保存当前配置；SQLite 与 PostgreSQL 数据不会自动合并。
 
@@ -103,10 +103,19 @@ docker compose cp api:/data/raw .local/backups/docker-raw
 
 ## 证据位置
 
-检查命令见 README。记录在 `FINAL_AUDIT.md`、`SCIENTIFIC_AUDIT.md`、`docs/validation/` 及本机 `.local/`。GitHub Actions 已配置，尚未推送运行。
+检查命令见 README。记录在 `FINAL_AUDIT.md`、`SCIENTIFIC_AUDIT.md`、`docs/validation/` 及本机 `.local/`。GitHub Actions 已实际通过：[候选源码 CI](https://github.com/LeilaoMi/lottery-design/actions/runs/34713631649)。该运行的后端/PostgreSQL/浏览器/容器报告下载到 .local/release/ci-candidate/；公开非敏感摘要在 docs/validation/2026-09-13-release.json。
 
-## 本次最终备份
+## 本地历史备份
 
 已修正备份程序在关闭 SQLite 连接前生成清单的问题，避免将随后消失的 WAL/SHM 临时文件列入清单。黑盒回归测试在写前日志仍打开的数据库上运行独立备份进程，并在该进程退出后核对所有文件、校验值和已提交记录。
 
 修复后的本次完整备份为 `.local/backups/20260912-173537-750011/`。较早两个诊断目录原样保留并加入 VERIFICATION_NOTE.txt，不作为最终可校验备份使用。
+
+
+## 正式云备份与发布
+
+`python scripts/backup_cloud.py` 读取本项目私有 .env.cloud.local，通过只读一致性事务复制到新的 .local/backups/cloud-*/lottolab.db，再独立恢复到 restore-check.db。manifest.json 保存逐表指纹、文件校验值和恢复结果，不包含密码或管理员令牌。存在运行任务时拒绝备份。
+
+本次已验证备份 .local/backups/cloud-20260912T185552Z-8cfd204d/，包含发布前 1,300 开奖、10 任务、4 导入、2 冻结数据集、4 快照；两个 SQLite 文件均为 3,260,416 字节，SHA-256 均为 8acebfb6ff9ee0110fd626fa8efdce09af314b5071b671b517f120e287f3496f。发布后的原记录逐条哈希一致。
+
+备份应另存于自己的私有备份位置。恢复先使用独立目标，并设置 LOTTOLAB_SNAPSHOT_STORAGE=database；迁回 PostgreSQL 只使用新的专属空目标，不把首次迁移指向已含数据的云库。完整发布、回滚及数据恢复流程见 ../RELEASE.md。
