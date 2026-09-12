@@ -6,11 +6,13 @@
 
 - [ ] T110：核对产品/科学/安全边界，统一 1.0.0 版本，清除当前文档中与线上状态冲突的旧表述。
 - [ ] T111：完善 Linux 容器非空数据及任务重启验证，提交并推送最终代码，取得真实 GitHub Actions 后端/PostgreSQL/浏览器/容器 PASS。
-- [ ] T112：生产数据库只读备份，独立空库恢复及逐表/原始快照校验，形成可重复运行的维护入口。
+- [x] T112：生产数据库只读备份，独立空库恢复及逐表/原始快照校验 PASS。入口为 scripts/backup_cloud.py；本次备份含 1,300 开奖、10 任务、4 导入、2 冻结数据集和 4 快照，独立恢复文件 SHA-256 一致，正式库未写入。
 - [ ] T113：最终预览部署、正式发布与版本/计算/历史持久化检查，保留回滚目标与原生产数据。
 - [ ] T114：源码并入主分支、发布版本标签与 Release，更新封板记录和最终证据；实际完成后标记封板。
 
 封板前云部署和旧本地阶段的记录如下，原有 PASS/失败历史保持可追溯；尚未执行的封板检查不提前标为通过。
+
+封板恢复进度：候选代码 21acbc8 已推送至 codex/final-release，PR 为 https://github.com/LeilaoMi/lottery-design/pull/1。首次 Actions 34713101518 的 browser/container 均 PASS，backend 因 Linux mypy 检查 Windows 专用 CREATE_NO_WINDOW 常量而 FAIL；已改用显式 sys.platform 分支，Windows/Linux 两套本地 mypy 与 20 项任务进程回归 PASS，等待修复提交的远程复验。正式仍为 0.1.0，尚未封板或创建标签。
 
 更新：2026-09-13。用户已授权 LottoLab 业务开发，并选择“电脑关机后完整使用，优先免费云服务”。**免费云正式部署与真实 Vercel 验收已完成：https://lottolab-zeta.vercel.app。** 下方首版本地验证属于云改造前的基线。本地启动入口 Start-LottoLab.cmd；本次线上验收时本机 API/worker 未运行。
 

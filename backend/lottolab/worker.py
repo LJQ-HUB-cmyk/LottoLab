@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import subprocess
 import sys
 import time
@@ -183,10 +182,13 @@ def expire_interrupted_jobs(db: Session, settings: Settings) -> None:
 
 def start_job_process(job_id: str, settings_data: dict) -> subprocess.Popen:
     """Start only the calculator, without re-importing a hosting runtime's __main__."""
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NO_WINDOW
     child = subprocess.Popen(
         [sys.executable, str(Path(__file__).with_name("job_process.py"))],
         stdin=subprocess.PIPE,
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        creationflags=creationflags,
     )
     try:
         assert child.stdin is not None
