@@ -49,6 +49,8 @@ def can_write(request: Request, settings: Settings) -> bool:
     origin = request.headers.get("origin")
     if origin and origin not in settings.origins:
         return False
+    if settings.public_mode:
+        return True
     token = request.headers.get("x-admin-token", "")
     if (
         settings.admin_token
