@@ -1,4 +1,4 @@
-"""Fail-closed configuration for a private Vercel deployment."""
+"""Configuration for the public Vercel deployment (no admin token; host/CORS/size guards kept)."""
 
 import os
 import re
@@ -41,9 +41,6 @@ def postgres_url(value: str) -> str:
 def vercel_settings(environ: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if environ is None else environ
     database = postgres_url(env.get("LOTTOLAB_DATABASE_URL", ""))
-    token = env.get("LOTTOLAB_ADMIN_TOKEN", "")
-    if len(token) < 32 or not token.strip():
-        raise ValueError("云端需要至少 32 字符的随机管理员令牌，请设置 LOTTOLAB_ADMIN_TOKEN")
     hosts = set(env.get("LOTTOLAB_ALLOWED_HOSTS", "").split(","))
     hosts.update(
         env.get(name, "") for name in ("VERCEL_URL", "VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_BRANCH_URL")
@@ -65,13 +62,14 @@ def vercel_settings(environ: Mapping[str, str] | None = None) -> Settings:
         raise ValueError("云端单任务运行上限须为 1–240 秒，为函数收尾保留时间")
     return VercelSettings(
         database_url=database,
-        admin_token=token,
+        admin_token="",
         data_dir=Path(tempfile.gettempdir()) / "lottolab",
         frontend_dir=Path(__file__).resolve().parents[2] / "frontend/dist",
         allowed_hosts=",".join(sorted(hosts)),
         allowed_origins=",".join(sorted(origins)),
         allow_local_writes=False,
-        require_read_auth=True,
+        require_read_auth=False,
+        public_mode=True,
         execution_mode="request",
         snapshot_storage="database",
         job_timeout_seconds=int(timeout),

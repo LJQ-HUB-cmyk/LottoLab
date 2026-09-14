@@ -1,0 +1,36 @@
+# 每日开奖同步：拉 17500 的 8 彩种最新若干期 → 归一期号 → 正规校验 → 幂等追加到生产 draws。
+# 只 INSERT ... ON CONFLICT DO NOTHING，绝不改动既有行；每彩种留 IngestionRun 溯源。
+# 与 shadow-parallel 互补：影子只比对不改生产，本作业负责把当日真实开奖正式入库。
+# 依赖仓库 secret：DATABASE_URL（Neon 连接串；缺失则本工作流失败）。
+name: daily-sync
+on:
+  schedule:
+    - cron: "0 15 * * *"     # 15:00 UTC = 北京 23:00，各彩种当晚开奖与 17500 更新之后
+  workflow_dispatch:
+    inputs:
+      recent:
+        description: "每彩种同步最近多少期"
+        required: false
+        default: "40"
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: pip install -r requirements.lock && pip install --no-deps -e .
+      - name: Append latest draws to production
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RECENT: ${{ github.event.inputs.recent || '40' }}
+        run: python collector/daily_sync.py
+      - name: Failure notice hook
+        if: failure()
+        run: echo "::warning::每日开奖同步失败，请检查 17500 源可达性与 DATABASE_URL"

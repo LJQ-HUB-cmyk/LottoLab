@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     execution_mode: Literal["worker", "request"] = "worker"
     snapshot_storage: Literal["filesystem", "database"] = "filesystem"
     require_read_auth: bool = False
+    public_mode: bool = False
     max_active_jobs: int = Field(default=8, ge=1, le=8)
     max_csv_bytes: int = Field(default=8 * 1024 * 1024, ge=1024, le=8 * 1024 * 1024)
 

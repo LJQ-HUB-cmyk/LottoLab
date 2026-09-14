@@ -64,14 +64,16 @@ def queued_job(factory, **overrides):
         return job.id
 
 
-def test_cloud_config_enforces_durable_private_defaults(monkeypatch, tmp_path):
+def test_cloud_config_enforces_public_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("LOTTOLAB_ALLOW_LOCAL_WRITES=true\n", encoding="utf-8")
     settings = vercel_settings({**cloud_env(), "LOTTOLAB_ALLOW_LOCAL_WRITES": "true"})
     assert settings.database_url.startswith("postgresql+psycopg://")
     assert "sslmode=require" in settings.database_url
     assert not settings.allow_local_writes
-    assert settings.require_read_auth
+    assert not settings.require_read_auth
+    assert settings.public_mode
+    assert settings.admin_token == ""
     assert settings.execution_mode == "request"
     assert settings.snapshot_storage == "database"
     assert settings.max_active_jobs == 1
@@ -87,7 +89,6 @@ def test_cloud_config_enforces_durable_private_defaults(monkeypatch, tmp_path):
         ("LOTTOLAB_DATABASE_URL", "sqlite:///.local/cloud.db"),
         ("LOTTOLAB_DATABASE_URL", "postgresql://user:fixture-secret@localhost/cloud"),
         ("LOTTOLAB_DATABASE_URL", "postgresql://user:fixture-secret@db.example/cloud?sslmode=disable"),
-        ("LOTTOLAB_ADMIN_TOKEN", "short"),
         ("LOTTOLAB_ALLOWED_HOSTS", "*"),
         ("LOTTOLAB_ALLOWED_ORIGINS", "http://insecure.example"),
         ("LOTTOLAB_JOB_TIMEOUT_SECONDS", "300"),
