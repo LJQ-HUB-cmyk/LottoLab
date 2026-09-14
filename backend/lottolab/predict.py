@@ -149,3 +149,299 @@ def recommend(kind: str, draws: list[dict[str, Any]], seed: int = 1) -> dict[str
             [f"{v:02d}" for v in range(1, a_hi + 1)], _freq_by_field(draws, afield), a_pick, rng
         )
     return {"kind": kind, "main": sorted(main), "aux": sorted(aux)}
+
+
+# ---------- 整合 lottery-web 多策略评分推荐 + LottoLab 分区/AC 结构分，seeded 可复现 ----------
+
+AUX_SPEC: dict[str, tuple[int, int, int]] = {"ssq": (1, 16, 1), "dlt": (1, 12, 2)}  # lo, hi, count
+
+DISCLAIMER_RECOMMEND = "结构化参考，随机游戏仅供娱乐；不改变任何一注的中奖概率，不构成购彩建议。"
+
+
+def _main_of(kind: str, row: dict[str, Any]) -> list[int]:
+    field = PICK[kind]["field"][0]
+    val = row.get(field) or []
+    if not isinstance(val, (list, tuple)):
+        val = [val]
+    return [int(x) for x in val]
+
+
+def _aux_of(kind: str, row: dict[str, Any]) -> list[int]:
+    field = PICK[kind]["field"][1]
+    if not field:
+        return []
+    val = row.get(field)
+    if val is None:
+        return []
+    if not isinstance(val, (list, tuple)):
+        val = [val]
+    return [int(x) for x in val]
+
+
+def _rank_pick(rng: random.Random, ordered: list[int], k: int) -> list[int]:
+    """从已排序候选里取前 k，用 seeded 抖动做同分稳定但可变的破平局。"""
+    keyed = [(i, rng.random(), v) for i, v in enumerate(ordered)]
+    keyed.sort(key=lambda t: (t[0], t[1]))  # 保持给定优先级
+    return sorted(v for _, _, v in keyed[:k])
+
+
+def analyze_pool(kind: str, draws: list[dict[str, Any]], window: int = 60) -> dict[str, Any]:
+    lo, hi, pick = POOL_SPEC[kind]
+    recent = draws[-window:]
+    freq = {v: 0 for v in range(lo, hi + 1)}
+    for d in recent:
+        for x in _main_of(kind, d):
+            if lo <= x <= hi:
+                freq[x] += 1
+    omission: dict[int, int] = {}
+    for v in range(lo, hi + 1):
+        gap = 0
+        for d in reversed(draws):
+            if v in _main_of(kind, d):
+                break
+            gap += 1
+        omission[v] = gap
+    hot = sorted(freq, key=lambda v: (-freq[v], v))
+    cold = sorted(freq, key=lambda v: (freq[v], v))
+    sums: list[int] = []
+    acs: list[int] = []
+    roads = [0, 0, 0]
+    prime = 0
+    total = 0
+    for d in recent:
+        n = sorted(_main_of(kind, d))
+        if len(n) != pick:
+            continue
+        sums.append(sum(n))
+        acs.append(ac_value(n))
+        for x in n:
+            roads[x % 3] += 1
+            prime += 1 if x in PRIMES else 0
+        total += len(n)
+    avg = lambda a: round(sum(a) / len(a), 2) if a else None  # noqa: E731
+    return {
+        "kind": kind,
+        "window": len(recent),
+        "hot": hot[: pick * 2],
+        "cold": cold[: pick * 2],
+        "freq": freq,
+        "omission": omission,
+        "avg_sum": avg(sums),
+        "avg_ac": avg(acs),
+        "road012": roads,
+        "prime_share": round(prime / total, 3) if total else None,
+    }
+
+
+def struct_score(kind: str, nums: list[Any]) -> int:
+    """通用池型结构分（和值/奇偶/大小/三区/跨度/AC），0–12。整合 LottoLab 分区与 AC。"""
+    if kind not in POOL_SPEC:
+        raise ValueError(f"struct_score 仅支持 pool 类彩种，收到 {kind}")
+    lo, hi, pick = POOL_SPEC[kind]
+    n = sorted(int(x) for x in nums)
+    if len(n) != pick:
+        return 0
+    min_sum = sum(range(lo, lo + pick))
+    max_sum = sum(range(hi - pick + 1, hi + 1))
+    span_lo, span_hi = min_sum + 0.25 * (max_sum - min_sum), min_sum + 0.75 * (max_sum - min_sum)
+    s = 0
+    if span_lo <= sum(n) <= span_hi:
+        s += 3
+    mid = (lo + hi) / 2
+    if abs(sum(1 for x in n if x % 2) - pick / 2) <= 1:
+        s += 2
+    if abs(sum(1 for x in n if x > mid) - pick / 2) <= 1:
+        s += 2
+    zones = zones_of(lo, hi)
+    zc = [0, 0, 0]
+    for x in n:
+        zc[zone_idx(zones, x)] += 1
+    if all(c > 0 for c in zc):
+        s += 2
+    if 0.6 * (hi - lo) <= (n[-1] - n[0]) <= 0.95 * (hi - lo):
+        s += 1
+    if ac_value(n) >= pick:
+        s += 1
+    return s
+
+
+def _zone_cover(rng: random.Random, kind: str, freq: dict[int, int]) -> list[int]:
+    lo, hi, pick = POOL_SPEC[kind]
+    zones = zones_of(lo, hi)
+    buckets: dict[int, list[int]] = {i: [] for i in range(3)}
+    for v in range(lo, hi + 1):
+        buckets[zone_idx(zones, v)].append(v)
+    for i in buckets:
+        buckets[i].sort(key=lambda v: (-freq[v], v))
+    out: list[int] = []
+    for i in range(min(3, pick)):
+        if buckets[i]:
+            out.append(buckets[i].pop(0))
+    rest = [v for i in buckets for v in buckets[i]]
+    rest.sort(key=lambda v: (-freq[v], v))
+    for v in rest:
+        if len(out) >= pick:
+            break
+        if v not in out:
+            out.append(v)
+    return sorted(out[:pick])
+
+
+def _weighted_pick(rng: random.Random, tokens: list[int], weights: list[int], k: int) -> list[int]:
+    pool = list(zip(tokens, weights, strict=True))
+    out: list[int] = []
+    while len(out) < k and pool:
+        total = sum(w for _, w in pool)
+        target = rng.uniform(0, total)
+        acc = 0.0
+        chosen = pool[-1][0]
+        for tok, w in pool:
+            acc += w
+            if acc >= target:
+                chosen = tok
+                break
+        out.append(chosen)
+        pool = [(t, w) for t, w in pool if t != chosen]
+    return sorted(out)
+
+
+def _pick_aux(rng: random.Random, kind: str, draws: list[dict[str, Any]]) -> list[int]:
+    spec = AUX_SPEC.get(kind)
+    if not spec:
+        return []
+    lo, hi, cnt = spec
+    freq = {v: 0 for v in range(lo, hi + 1)}
+    omission = {v: 0 for v in range(lo, hi + 1)}
+    for d in draws:
+        for x in _aux_of(kind, d):
+            if lo <= x <= hi:
+                freq[x] += 1
+    for v in range(lo, hi + 1):
+        gap = 0
+        for d in reversed(draws):
+            if v in _aux_of(kind, d):
+                break
+            gap += 1
+        omission[v] = gap
+    maxf = max(1, max(freq.values()))
+    score = {v: (freq[v] / maxf) * 0.6 + min(1.0, omission[v] / 30) * 0.4 for v in range(lo, hi + 1)}
+    ranked = sorted(score, key=lambda v: (-score[v], v))
+    return sorted(_rank_pick(rng, ranked, cnt))
+
+
+def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, groups: int = 6) -> dict[str, Any]:
+    """多策略、带结构分的推荐（整合 lottery-web 的 6 组参考与遗漏/012 路/质合分析，
+    并叠加 LottoLab 的分区与 AC 结构分）。全程 seeded 可复现。"""
+    spec = PICK.get(kind)
+    if not spec:
+        raise ValueError(f"未知彩种 {kind}")
+    rng = random.Random(seed)
+    if "digit" in spec:
+        return _recommend_multi_digit(kind, draws, rng, groups)
+    if kind not in POOL_SPEC:
+        raise ValueError(f"{kind} 暂不支持多策略推荐")
+    an = analyze_pool(kind, draws)
+    lo, hi, pick = POOL_SPEC[kind]
+    all_tokens = list(range(lo, hi + 1))
+    freq = an["freq"]
+    omission = an["omission"]
+    hot = an["hot"] + [v for v in sorted(freq, key=lambda v: (-freq[v], v)) if v not in an["hot"]]
+    by_omit = sorted(all_tokens, key=lambda v: (-omission[v], v))
+    half = pick // 2
+    balanced = hot[:half] + an["cold"][: pick - half]
+    strategies: list[tuple[str, list[int]]] = [
+        ("稳健·热号", _rank_pick(rng, hot, pick)),
+        ("进取·遗漏", _rank_pick(rng, by_omit, pick)),
+        ("冷热均衡", _rank_pick(rng, balanced + hot, pick)),
+        ("区间覆盖", _zone_cover(rng, kind, freq)),
+        ("冷热加权", _weighted_pick(rng, all_tokens, [freq[v] + 1 for v in all_tokens], pick)),
+        ("随机基准", sorted(rng.sample(all_tokens, pick))),
+    ]
+    picks: list[dict[str, Any]] = []
+    for name, main in strategies[: max(1, groups)]:
+        main = sorted(set(main))[:pick]
+        if len(main) < pick:
+            main = sorted(set(main) | set(hot[:pick]))[:pick]
+        aux = _pick_aux(rng, kind, draws)
+        picks.append(
+            {
+                "name": name,
+                "main": [f"{v:02d}" for v in main],
+                "aux": [f"{v:02d}" for v in aux],
+                "score": struct_score(kind, main),
+            }
+        )
+    analysis = {
+        "window": an["window"],
+        "hot": [f"{v:02d}" for v in an["hot"][:pick]],
+        "cold": [f"{v:02d}" for v in an["cold"][:pick]],
+        "avg_sum": an["avg_sum"],
+        "avg_ac": an["avg_ac"],
+        "road012": an["road012"],
+        "prime_share": an["prime_share"],
+    }
+    return {
+        "kind": kind,
+        "family": "pool",
+        "picks": picks,
+        "analysis": analysis,
+        "disclaimer": DISCLAIMER_RECOMMEND,
+    }
+
+
+def _recommend_multi_digit(
+    kind: str, draws: list[dict[str, Any]], rng: random.Random, groups: int
+) -> dict[str, Any]:
+    spec = PICK[kind]
+    pos = int(spec["digit"])
+    last_hi = int(spec.get("last_hi", 9))
+    field = spec["field"][0]
+
+    def pos_scores(p: int) -> dict[int, int]:
+        hi = last_hi if (kind == "qxc" and p == pos - 1) else 9
+        counts = {v: 0 for v in range(0, hi + 1)}
+        for d in draws:
+            dg = d.get(field) or []
+            if p < len(dg):
+                v = int(dg[p])
+                if v in counts:
+                    counts[v] += 1
+        return counts
+
+    def build(mode: str) -> list[int]:
+        out: list[int] = []
+        for p in range(pos):
+            counts = pos_scores(p)
+            hi = max(counts) if counts else 9
+            if mode == "hot":
+                ranked = sorted(counts, key=lambda v: (-counts[v], v))
+                out.append(ranked[0])
+            elif mode == "cold":
+                ranked = sorted(counts, key=lambda v: (counts[v], v))
+                out.append(ranked[0])
+            elif mode == "balanced":
+                ranked = sorted(counts, key=lambda v: (-counts[v], v))
+                out.append(ranked[min(1, len(ranked) - 1)])
+            else:
+                out.append(rng.randint(0, hi))
+        return out
+
+    modes = [("每位热号", "hot"), ("每位冷号", "cold"), ("冷热均衡", "balanced"), ("随机基准", "random")]
+    picks = []
+    for name, mode in modes[: max(1, groups)]:
+        digits = build(mode)
+        picks.append(
+            {
+                "name": name,
+                "main": [str(v) for v in digits],
+                "aux": [],
+                "score": None,
+            }
+        )
+    return {
+        "kind": kind,
+        "family": "digit",
+        "picks": picks,
+        "analysis": {},
+        "disclaimer": DISCLAIMER_RECOMMEND,
+    }

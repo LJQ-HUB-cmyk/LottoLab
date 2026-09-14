@@ -28,7 +28,7 @@ from .config import Settings, get_settings
 from .db import Draw, IngestionRun, Job, QualityIssue, make_engine, make_session_factory, now
 from .domain import DISCLAIMER, RULES, DatasetKind, DrawInput, Lottery
 from .ingestion import digest, freeze_dataset, ingest_records, load_draws, parse_csv
-from .predict import recommend
+from .predict import recommend, recommend_multi
 from .schemas import (
     BacktestRequest,
     CoverRequest,
@@ -360,13 +360,21 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
         return verify_batch(kind, _as_online(kind, _rows(db, kind)), lines, codes)
 
     @app.get("/api/v1/recommend")
-    def recommend_ep(db: DB, kind: str = "ssq", seed: int = 1):
+    def recommend_ep(db: DB, kind: str = "ssq", seed: int = 1, groups: int = Query(6, ge=1, le=8)):
         if kind not in ONLINE_KINDS:
             raise HTTPException(400, "未知彩种")
         rows = _as_online(kind, _rows(db, kind))
         if not rows:
             raise HTTPException(404, f"{kind} 暂无可用开奖数据（trunk 尚未收录该彩种，见 B3）")
-        return recommend(kind, rows, seed)
+        single = recommend(kind, rows, seed)
+        multi = recommend_multi(kind, rows, seed, groups)
+        return {
+            **single,
+            "family": multi["family"],
+            "picks": multi["picks"],
+            "analysis": multi["analysis"],
+            "disclaimer": multi["disclaimer"],
+        }
 
     @app.get("/api/v1/ingestions")
     def ingestions(db: DB, lottery: Lottery = "ssq", dataset_kind: DatasetKind = "real"):

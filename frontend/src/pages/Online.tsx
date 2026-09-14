@@ -3,10 +3,28 @@ import { api, useResource } from '../api'
 import { ErrorNote, Loading } from '../components'
 import { useWorkspace } from '../Workspace'
 
+interface RecommendPick {
+  name: string
+  main: string[]
+  aux: string[]
+  score: number | null
+}
 interface RecommendResult {
   kind: string
   main: string[]
   aux: string[]
+  family: 'pool' | 'digit'
+  picks: RecommendPick[]
+  analysis: {
+    window?: number
+    hot?: string[]
+    cold?: string[]
+    avg_sum?: number | null
+    avg_ac?: number | null
+    road012?: number[]
+    prime_share?: number | null
+  }
+  disclaimer?: string
 }
 interface BetResult {
   kind: string
@@ -112,20 +130,54 @@ export function OnlinePage() {
         </div>
         <ErrorNote message={recommend.error} />
         {recommend.loading && !recommend.data && <Loading />}
-        {recommend.data && (
-          <div className="grid">
+        {recommend.data &&
+          (recommend.data.picks && recommend.data.picks.length ? (
             <div>
-              <p className="muted">主区</p>
-              <p className="numbers">{recommend.data.main.join('  ')}</p>
+              {recommend.data.picks.map((p) => (
+                <div
+                  key={p.name}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0' }}
+                >
+                  <span className="muted">
+                    {p.name}
+                    {p.score != null ? ` · 结构分 ${p.score}` : ''}
+                  </span>
+                  <span className="numbers">
+                    {p.main.join('  ')}
+                    {p.aux.length > 0 ? `  +  ${p.aux.join('  ')}` : ''}
+                  </span>
+                </div>
+              ))}
+              {recommend.data.analysis && (recommend.data.analysis.hot?.length ?? 0) > 0 && (
+                <p className="muted" style={{ marginTop: 8 }}>
+                  近 {recommend.data.analysis.window} 期 · 热号 {recommend.data.analysis.hot?.join(' ')} ·
+                  冷号 {recommend.data.analysis.cold?.join(' ')}
+                  {recommend.data.analysis.avg_sum != null
+                    ? ` · 均和 ${recommend.data.analysis.avg_sum}`
+                    : ''}
+                  {recommend.data.analysis.avg_ac != null ? ` · 均AC ${recommend.data.analysis.avg_ac}` : ''}
+                </p>
+              )}
+              {recommend.data.disclaimer && (
+                <p className="muted" style={{ marginTop: 4 }}>
+                  {recommend.data.disclaimer}
+                </p>
+              )}
             </div>
-            {recommend.data.aux.length > 0 && (
+          ) : (
+            <div className="grid">
               <div>
-                <p className="muted">辅区</p>
-                <p className="numbers">{recommend.data.aux.join('  ')}</p>
+                <p className="muted">主区</p>
+                <p className="numbers">{recommend.data.main.join('  ')}</p>
               </div>
-            )}
-          </div>
-        )}
+              {recommend.data.aux.length > 0 && (
+                <div>
+                  <p className="muted">辅区</p>
+                  <p className="numbers">{recommend.data.aux.join('  ')}</p>
+                </div>
+              )}
+            </div>
+          ))}
         {!recommend.loading && !recommend.data && !recommend.error && (
           <p>该彩种暂无可用开奖数据（小彩种待接入统一库）。</p>
         )}
