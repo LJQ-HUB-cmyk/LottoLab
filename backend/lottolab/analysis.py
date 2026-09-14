@@ -11,11 +11,31 @@ from scipy.stats import binomtest, chi2, norm
 from .domain import Rule
 
 
-def incidence(draws: list[dict], maximum: int, field: str) -> np.ndarray:
-    matrix = np.zeros((len(draws), maximum), dtype=np.float64)
+def incidence(draws: list[dict], maximum: int, field: str, *, digit: bool = False) -> np.ndarray:
+    width = maximum + 1 if digit else maximum
+    matrix = np.zeros((len(draws), width), dtype=np.float64)
     for index, draw in enumerate(draws):
-        matrix[index, np.asarray(draw[field], dtype=int) - 1] = 1
+        values = np.asarray(draw[field], dtype=int)
+        columns = values if digit else values - 1
+        matrix[index, columns] = 1
     return matrix
+
+
+def _digit_ranges(rule: Rule) -> list[tuple[int, int]]:
+    """DIGIT 各位取值区间：默认 0..main_max，末位若有 last_max 则用 0..last_max。"""
+    ranges = [(0, rule.main_max)] * rule.main_count
+    if rule.last_max is not None:
+        ranges[-1] = (0, rule.last_max)
+    return ranges
+
+
+def _digit_expected_appearance(digit: int, ranges: list[tuple[int, int]]) -> float:
+    """均匀零模型下，某数字在一期各位中至少出现一次的概率。"""
+    absent = 1.0
+    for lo, hi in ranges:
+        p = 1.0 / (hi - lo + 1) if lo <= digit <= hi else 0.0
+        absent *= 1.0 - p
+    return 1.0 - absent
 
 
 def wilson(successes: int, trials: int) -> list[float]:
@@ -54,6 +74,71 @@ def sum_pmf(population: int, chosen: int) -> tuple[float, ...]:
 
 def summarize(draws: list[dict], rule: Rule) -> dict:
     size = len(draws)
+    family = rule.family
+
+    trajectory = []
+    previous: set[int] = set()
+    for draw in draws:
+        values = draw["main_numbers"]
+        current = set(values)
+        trajectory.append(
+            {
+                "issue": draw["issue"],
+                "date": draw["draw_date"],
+                "sum": sum(values),
+                "span": max(values) - min(values) if values else 0,
+                "odd": sum(v % 2 for v in values),
+                "consecutive_pairs": sum(b == a + 1 for a, b in zip(values, values[1:], strict=False)),
+                "repeated": len(current & previous) if previous else None,
+                "high": sum(v > rule.main_max // 2 for v in values),
+            }
+        )
+        previous = current
+
+    structure = {}
+    for field in ("span", "odd", "high", "consecutive_pairs", "repeated"):
+        values = [row[field] for row in trajectory if row[field] is not None]
+        structure[f"mean_{field}"] = sum(values) / len(values) if values else None
+    structure["repeat_comparisons"] = max(0, size - 1)
+    structure["high_from"] = rule.main_max // 2 + 1
+    mean_sum = sum(t["sum"] for t in trajectory) / size if size else None
+
+    if family == "DIGIT":
+        ranges = _digit_ranges(rule)
+        max_digit = max(hi for _, hi in ranges)
+        matrix = incidence(draws, max_digit, "main_numbers", digit=True)
+        main_records = []
+        for digit in range(max_digit + 1):
+            successes = int(matrix[:, digit].sum())
+            appearances = np.flatnonzero(matrix[:, digit])
+            omission = size - 1 - int(appearances[-1]) if len(appearances) else size
+            main_records.append(
+                {
+                    "number": digit,
+                    "count": successes,
+                    "frequency": successes / size if size else 0.0,
+                    "expected_frequency": _digit_expected_appearance(digit, ranges),
+                    "confidence_interval": wilson(successes, size),
+                    "omission": omission,
+                }
+            )
+        expected_sum = sum((lo + hi) / 2 for lo, hi in ranges)
+        return {
+            "family": "digit",
+            "sample_size": size,
+            "frequency": {"main": main_records, "special": []},
+            "trajectory": trajectory[-240:],
+            "mean_sum": mean_sum,
+            "expected_sum": expected_sum,
+            "sum_distribution": [],
+            "odd_distribution": [],
+            "overlap_pmf": [],
+            "regions": [],
+            "cooccurrence": [],
+            "structure": structure,
+            "null_model": "各位数字在自身取值区间内独立均匀（末位含七星彩 0–14）",
+        }
+
     frequencies = {}
     for area, maximum, chosen, field in (
         ("main", rule.main_max, rule.main_count, "main_numbers"),
@@ -76,24 +161,6 @@ def summarize(draws: list[dict], rule: Rule) -> dict:
                 }
             )
         frequencies[area] = records
-    trajectory = []
-    previous: set[int] = set()
-    for draw in draws:
-        values = draw["main_numbers"]
-        current = set(values)
-        trajectory.append(
-            {
-                "issue": draw["issue"],
-                "date": draw["draw_date"],
-                "sum": sum(values),
-                "span": max(values) - min(values),
-                "odd": sum(v % 2 for v in values),
-                "consecutive_pairs": sum(b == a + 1 for a, b in zip(values, values[1:], strict=False)),
-                "repeated": len(current & previous) if previous else None,
-                "high": sum(v > rule.main_max // 2 for v in values),
-            }
-        )
-        previous = current
     observed_sums = Counter(t["sum"] for t in trajectory)
     theory = sum_pmf(rule.main_max, rule.main_count)
     odds = Counter(t["odd"] for t in trajectory)
@@ -121,17 +188,12 @@ def summarize(draws: list[dict], rule: Rule) -> dict:
         }
         for pair in combinations(range(1, rule.main_max + 1), 2)
     ]
-    structure = {}
-    for field in ("span", "odd", "high", "consecutive_pairs", "repeated"):
-        values = [row[field] for row in trajectory if row[field] is not None]
-        structure[f"mean_{field}"] = sum(values) / len(values) if values else None
-    structure["repeat_comparisons"] = max(0, size - 1)
-    structure["high_from"] = rule.main_max // 2 + 1
     return {
+        "family": "pool",
         "sample_size": size,
         "frequency": frequencies,
         "trajectory": trajectory[-240:],
-        "mean_sum": sum(t["sum"] for t in trajectory) / size if size else None,
+        "mean_sum": mean_sum,
         "expected_sum": rule.main_count * (rule.main_max + 1) / 2,
         "sum_distribution": [
             {
@@ -191,6 +253,8 @@ def _joint_null_statistics(rng, population, chosen, size, trials, include_sum=Fa
 
 
 def randomness(draws: list[dict], rule: Rule, *, trials: int = 4999, seed: int = 2026) -> dict:
+    if rule.family == "DIGIT":
+        raise ValueError("随机性检验基于池型不放回零模型，仅对双色球/大乐透等池型彩种提供；数字型彩种不适用")
     size = len(draws)
     if size < 30:
         raise ValueError("随机性检验至少需要 30 期记录")

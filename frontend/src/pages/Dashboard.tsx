@@ -113,7 +113,11 @@ export function Dashboard() {
             <>
               <Panel
                 title="号码出现频率"
-                subtitle={`最近 ${data.statistics.sample_size} 期主区，虚线为均匀模型的期望次数。`}
+                subtitle={
+                  data.statistics.family === 'digit'
+                    ? `最近 ${data.statistics.sample_size} 期各位数字的出现次数。`
+                    : `最近 ${data.statistics.sample_size} 期主区，虚线为均匀模型的期望次数。`
+                }
                 action={
                   <a className="panel-link" href="#/statistics">
                     展开统计 <ArrowRight size={14} />
@@ -140,11 +144,13 @@ export function Dashboard() {
                         formatter={(value) => [fmt(Number(value)), '出现次数']}
                         labelFormatter={(label) => `号码 ${String(label).padStart(2, '0')}`}
                       />
-                      <ReferenceLine
-                        y={(data.statistics.sample_size * data.rule.main_count) / data.rule.main_max}
-                        stroke="#2d8792"
-                        strokeDasharray="6 4"
-                      />
+                      {data.statistics.family === 'pool' && (
+                        <ReferenceLine
+                          y={(data.statistics.sample_size * data.rule.main_count) / data.rule.main_max}
+                          stroke="#2d8792"
+                          strokeDasharray="6 4"
+                        />
+                      )}
                       <Bar
                         isAnimationActive={false}
                         dataKey="count"
@@ -168,7 +174,14 @@ export function Dashboard() {
                 </div>
               </Panel>
               <div className="grid-two dashboard-bottom">
-                <Panel title="和值随时间变化" subtitle="逐期开奖的主区和值，仅作描述统计。">
+                <Panel
+                  title="和值随时间变化"
+                  subtitle={
+                    data.statistics.family === 'digit'
+                      ? '逐期开奖的各位数字之和，仅作描述统计。'
+                      : '逐期开奖的主区和值，仅作描述统计。'
+                  }
+                >
                   <div className="chart chart-small">
                     <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                       <LineChart data={data.statistics.trajectory}>
@@ -227,8 +240,10 @@ export function Dashboard() {
           )}
           <div className="coverage-note">
             实际收录范围：{data.first_date || '—'} 至 {data.last_date || '—'}
-            。当前覆盖范围不代表全部开奖历史。单号码主区入选概率为{' '}
-            {pct(data.rule.main_count / data.rule.main_max, 2)}。
+            。当前覆盖范围不代表全部开奖历史。
+            {data.statistics.family === 'digit'
+              ? ' 各位数字在其自身取值区间内独立均匀。'
+              : ` 单号码主区入选概率为 ${pct(data.rule.main_count / data.rule.main_max, 2)}。`}
           </div>
         </>
       )}

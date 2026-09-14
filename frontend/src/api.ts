@@ -38,6 +38,7 @@ export interface Frequency {
   confidence_interval: number[]
 }
 export interface Statistics {
+  family: 'pool' | 'digit'
   sample_size: number
   frequency: { main: Frequency[]; special: Frequency[] }
   trajectory: {
