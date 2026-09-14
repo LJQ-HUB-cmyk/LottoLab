@@ -64,6 +64,45 @@ def test_structure_and_cooccurrence_use_draw_and_transition_denominators():
     assert summarize([], RULES["ssq"])["structure"]["mean_repeated"] is None
 
 
+def test_summarize_handles_digit_kinds():
+    qxc = [
+        {
+            "issue": "26101",
+            "draw_date": "2026-09-07",
+            "main_numbers": [0, 1, 2, 3, 4, 5, 14],
+            "special_numbers": [],
+        },
+        {
+            "issue": "26102",
+            "draw_date": "2026-09-09",
+            "main_numbers": [0, 0, 1, 2, 3, 4, 7],
+            "special_numbers": [],
+        },
+    ]
+    result = summarize(qxc, RULES["qxc"])
+    assert result["family"] == "digit"
+    counts = {row["number"]: row["count"] for row in result["frequency"]["main"]}
+    assert len(result["frequency"]["main"]) == 15  # 数字 0..14
+    assert counts[0] == 2 and counts[14] == 1  # 0 不再被误记到末列，14 不再越界
+    assert result["sum_distribution"] == [] and result["cooccurrence"] == [] and result["regions"] == []
+    assert result["odd_distribution"] == [] and result["overlap_pmf"] == []
+    assert result["expected_sum"] == pytest.approx(34.0)  # 6×4.5 + 7
+    fc3d = [{"issue": "2026001", "draw_date": "2026-01-01", "main_numbers": [0, 5, 9], "special_numbers": []}]
+    digit_counts = {
+        row["number"]: row["count"] for row in summarize(fc3d, RULES["fc3d"])["frequency"]["main"]
+    }
+    assert digit_counts[0] == 1 and digit_counts[9] == 1
+
+
+def test_randomness_rejects_digit_kinds():
+    data = [
+        {"issue": f"26{100 + i:03d}", "draw_date": "2026-09-07", "main_numbers": [i % 10, 1, 2, 3, 4, 5, 7]}
+        for i in range(40)
+    ]
+    with pytest.raises(ValueError):
+        randomness(data, RULES["qxc"], trials=999, seed=1)
+
+
 def test_simulation_reproducible_and_matches_known_distribution():
     result = simulate(RULES["ssq"], 100000, 42)
     assert result == simulate(RULES["ssq"], 100000, 42)
