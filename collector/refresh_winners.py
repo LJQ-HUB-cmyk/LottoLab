@@ -30,8 +30,8 @@ SOURCES: dict[str, tuple[str, str]] = {
     "fc3d": ("cwl", "3d"),
     "dlt": ("sporttery", "85"),
     "pl3": ("sporttery", "35"),
-    "pl5": ("sporttery", "35011"),
-    "qxc": ("sporttery", "226"),
+    "pl5": ("sporttery", "350133"),
+    "qxc": ("sporttery", "04"),
 }
 
 
