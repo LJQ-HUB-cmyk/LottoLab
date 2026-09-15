@@ -516,3 +516,75 @@ def _recommend_multi_digit(
         "analysis": {},
         "disclaimer": DISCLAIMER_RECOMMEND,
     }
+
+
+POOL_STRATEGIES = ["稳健·热号", "进取·遗漏", "冷热均衡", "区间覆盖", "冷热加权", "随机基准", "冷门避撞"]
+DIGIT_STRATEGIES = ["每位热号", "每位冷号", "冷热均衡", "随机基准", "冷门避撞"]
+
+
+def _expected_hits(kind: str) -> float:
+    """均匀模型下一注的期望命中数（主区/按位），作为诚实基线。"""
+    spec = PICK.get(kind, {})
+    if "digit" in spec:
+        pos = int(spec["digit"])
+        last_hi = int(spec.get("last_hi", 9))
+        if kind == "qxc":
+            return (pos - 1) / 10 + 1 / (last_hi + 1)
+        return pos / 10
+    if kind in POOL_SPEC:
+        _lo, hi, pick = POOL_SPEC[kind]
+        return pick * pick / hi
+    return 0.0
+
+
+def backtest_strategies(kind: str, draws: list[dict[str, Any]], window: int = 200) -> dict[str, Any]:
+    """滚动回测各推荐策略：对最近 window 期，每期只用其之前的历史生成各策略注，
+    与实际开奖比对命中数。诚实呈现——所有策略都应贴着均匀期望，没有策略能跑赢随机。"""
+    spec = PICK.get(kind)
+    if not spec:
+        raise ValueError(f"未知彩种 {kind}")
+    is_digit = "digit" in spec
+    names = DIGIT_STRATEGIES if is_digit else POOL_STRATEGIES
+    n = len(draws)
+    start = max(60, n - window)
+    if n - start < 20:
+        raise ValueError("可用回测期数不足（需至少 60 期训练 + 20 期测试）")
+    dist: dict[str, dict[int, int]] = {name: {} for name in names}
+    total = {name: 0 for name in names}
+    tested = 0
+    for t in range(start, n):
+        train = draws[:t]
+        actual = draws[t]
+        by_name = {p["name"]: p for p in recommend_multi(kind, train, seed=t, groups=len(names))["picks"]}
+        actual_main = _main_of(kind, actual)
+        for name in names:
+            pick = by_name.get(name)
+            if not pick:
+                continue
+            chosen = [int(x) for x in pick["main"]]
+            if is_digit:
+                hits = sum(
+                    1 for i in range(len(actual_main)) if i < len(chosen) and chosen[i] == actual_main[i]
+                )
+            else:
+                hits = len(set(chosen) & set(actual_main))
+            dist[name][hits] = dist[name].get(hits, 0) + 1
+            total[name] += hits
+        tested += 1
+    strategies = [
+        {
+            "name": name,
+            "mean_hits": round(total[name] / tested, 3) if tested else 0.0,
+            "hit_distribution": {str(k): v for k, v in sorted(dist[name].items())},
+        }
+        for name in names
+    ]
+    return {
+        "kind": kind,
+        "family": "digit" if is_digit else "pool",
+        "tested": tested,
+        "expected_mean_hits": round(_expected_hits(kind), 3),
+        "strategies": strategies,
+        "disclaimer": "回测显示各策略平均命中都贴近均匀期望：这是随机开奖的必然结果，"
+        "没有策略能提高中奖概率；结构分/避撞只影响号码形态与分摊风险，不改变期望命中。",
+    }

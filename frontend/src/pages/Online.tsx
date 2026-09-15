@@ -51,6 +51,19 @@ interface VerifyResult {
   rounds: VerifyRound[]
   total: { won: number; amount: number; amount_unknown: number }
 }
+interface BacktestStrategy {
+  name: string
+  mean_hits: number
+  hit_distribution: Record<string, number>
+}
+interface BacktestResult {
+  kind: string
+  family: string
+  tested: number
+  expected_mean_hits: number
+  strategies: BacktestStrategy[]
+  disclaimer: string
+}
 
 export function OnlinePage() {
   const { lottery, datasetKind, version } = useWorkspace()
@@ -66,6 +79,10 @@ export function OnlinePage() {
   const [codes, setCodes] = useState('')
   const [verify, setVerify] = useState<VerifyResult | null>(null)
   const [verifyErr, setVerifyErr] = useState('')
+
+  const [bt, setBt] = useState<BacktestResult | null>(null)
+  const [btErr, setBtErr] = useState('')
+  const [btLoading, setBtLoading] = useState(false)
 
   async function calcBet() {
     setBetErr('')
@@ -101,6 +118,18 @@ export function OnlinePage() {
       )
     } catch (e) {
       setVerifyErr(e instanceof Error ? e.message : '验奖失败')
+    }
+  }
+
+  async function runBacktest() {
+    setBtErr('')
+    setBtLoading(true)
+    try {
+      setBt(await api<BacktestResult>(`/recommend/backtest?kind=${lottery}`))
+    } catch (e) {
+      setBtErr(e instanceof Error ? e.message : '回测失败')
+    } finally {
+      setBtLoading(false)
     }
   }
 
@@ -185,6 +214,43 @@ export function OnlinePage() {
           ))}
         {!recommend.loading && !recommend.data && !recommend.error && (
           <p>该彩种暂无可用开奖数据（小彩种待接入统一库）。</p>
+        )}
+      </article>
+
+      <article className="card">
+        <div className="card-head">
+          <h2>策略回测</h2>
+          <button className="button" onClick={runBacktest} disabled={btLoading}>
+            {btLoading ? '回测中…' : '回测各策略（近 120 期）'}
+          </button>
+        </div>
+        <ErrorNote message={btErr} />
+        {bt && (
+          <div>
+            <p className="muted">
+              近 {bt.tested} 期滚动回测 · 均匀模型期望命中 <strong>{bt.expected_mean_hits}</strong>
+            </p>
+            {bt.strategies.map((s) => (
+              <div
+                key={s.name}
+                style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0' }}
+              >
+                <span className="muted">{s.name}</span>
+                <span>
+                  平均命中 <strong>{s.mean_hits}</strong>
+                  <span className="muted">
+                    {'  '}
+                    {Object.entries(s.hit_distribution)
+                      .map(([k, v]) => `${k}中×${v}`)
+                      .join(' ')}
+                  </span>
+                </span>
+              </div>
+            ))}
+            <p className="muted" style={{ marginTop: 6 }}>
+              {bt.disclaimer}
+            </p>
+          </div>
         )}
       </article>
 
