@@ -157,6 +157,53 @@ AUX_SPEC: dict[str, tuple[int, int, int]] = {"ssq": (1, 16, 1), "dlt": (1, 12, 2
 
 DISCLAIMER_RECOMMEND = "结构化参考，随机游戏仅供娱乐；不改变任何一注的中奖概率，不构成购彩建议。"
 
+# 撞号规避先验（Ziemba 式）：不改变中奖概率，只降低“中头奖要和多少人分摊”的期望风险。
+LUCKY = {6, 8, 9, 16, 18, 19, 26, 28, 29, 36, 38, 39}
+DIGIT_POP: dict[int, float] = {
+    0: 0.45,
+    1: 0.60,
+    2: 0.55,
+    3: 0.50,
+    4: 0.32,
+    5: 0.50,
+    6: 0.72,
+    7: 0.66,
+    8: 0.78,
+    9: 0.70,
+}
+
+
+def number_popularity(value: int) -> float:
+    """某号码被大众选中的相对倾向 0..1（越大越易撞号）。纯结构先验，不依赖销量数据。"""
+    p = 0.5
+    if 1 <= value <= 31:
+        p += 0.25  # 生日（日/月）
+    if 1 <= value <= 12:
+        p += 0.15  # 月份，更热
+    if value % 10 == 0:
+        p += 0.10  # 整十
+    elif value % 5 == 0:
+        p += 0.05
+    if value in LUCKY:
+        p += 0.10  # 吉利数
+    if value == 4 or value % 10 == 4:
+        p -= 0.18  # 忌“4”，反而冷门
+    if value >= 32:
+        p -= 0.22  # 生日覆盖不到，选的人少
+    return max(0.0, min(1.0, p))
+
+
+def _collision(kind: str, main: list[int], aux: list[int]) -> int:
+    """撞号指数 0–100，越低越可能独享奖金。数字型按每位数字先验，池型按号码先验（含辅区）。"""
+    spec = PICK.get(kind, {})
+    if "digit" in spec:
+        pops = [DIGIT_POP.get(int(v), 0.5) for v in main]
+    else:
+        pops = [number_popularity(int(v)) for v in list(main) + list(aux or [])]
+    if not pops:
+        return 0
+    return round(sum(pops) / len(pops) * 100)
+
 
 def _main_of(kind: str, row: dict[str, Any]) -> list[int]:
     field = PICK[kind]["field"][0]
@@ -329,6 +376,15 @@ def _pick_aux(rng: random.Random, kind: str, draws: list[dict[str, Any]]) -> lis
     return sorted(_rank_pick(rng, ranked, cnt))
 
 
+def _low_pop_aux(kind: str) -> list[int]:
+    spec = AUX_SPEC.get(kind)
+    if not spec:
+        return []
+    lo, hi, cnt = spec
+    ranked = sorted(range(lo, hi + 1), key=lambda v: (number_popularity(v), v))
+    return sorted(ranked[:cnt])
+
+
 def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, groups: int = 6) -> dict[str, Any]:
     """多策略、带结构分的推荐（整合 lottery-web 的 6 组参考与遗漏/012 路/质合分析，
     并叠加 LottoLab 的分区与 AC 结构分）。全程 seeded 可复现。"""
@@ -349,6 +405,7 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
     by_omit = sorted(all_tokens, key=lambda v: (-omission[v], v))
     half = pick // 2
     balanced = hot[:half] + an["cold"][: pick - half]
+    by_pop = sorted(all_tokens, key=lambda v: (number_popularity(v), v))
     strategies: list[tuple[str, list[int]]] = [
         ("稳健·热号", _rank_pick(rng, hot, pick)),
         ("进取·遗漏", _rank_pick(rng, by_omit, pick)),
@@ -356,19 +413,24 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
         ("区间覆盖", _zone_cover(rng, kind, freq)),
         ("冷热加权", _weighted_pick(rng, all_tokens, [freq[v] + 1 for v in all_tokens], pick)),
         ("随机基准", sorted(rng.sample(all_tokens, pick))),
+        ("冷门避撞", _rank_pick(rng, by_pop, pick)),
     ]
     picks: list[dict[str, Any]] = []
     for name, main in strategies[: max(1, groups)]:
         main = sorted(set(main))[:pick]
         if len(main) < pick:
             main = sorted(set(main) | set(hot[:pick]))[:pick]
-        aux = _pick_aux(rng, kind, draws)
+        if name == "冷门避撞":
+            aux = _low_pop_aux(kind)
+        else:
+            aux = _pick_aux(rng, kind, draws)
         picks.append(
             {
                 "name": name,
                 "main": [f"{v:02d}" for v in main],
                 "aux": [f"{v:02d}" for v in aux],
                 "score": struct_score(kind, main),
+                "collision": _collision(kind, main, aux),
             }
         )
     analysis = {
@@ -422,11 +484,19 @@ def _recommend_multi_digit(
             elif mode == "balanced":
                 ranked = sorted(counts, key=lambda v: (-counts[v], v))
                 out.append(ranked[min(1, len(ranked) - 1)])
+            elif mode == "avoid":
+                out.append(min(range(0, hi + 1), key=lambda v: (DIGIT_POP.get(v, number_popularity(v)), v)))
             else:
                 out.append(rng.randint(0, hi))
         return out
 
-    modes = [("每位热号", "hot"), ("每位冷号", "cold"), ("冷热均衡", "balanced"), ("随机基准", "random")]
+    modes = [
+        ("每位热号", "hot"),
+        ("每位冷号", "cold"),
+        ("冷热均衡", "balanced"),
+        ("随机基准", "random"),
+        ("冷门避撞", "avoid"),
+    ]
     picks = []
     for name, mode in modes[: max(1, groups)]:
         digits = build(mode)
@@ -436,6 +506,7 @@ def _recommend_multi_digit(
                 "main": [str(v) for v in digits],
                 "aux": [],
                 "score": None,
+                "collision": _collision(kind, digits, []),
             }
         )
     return {

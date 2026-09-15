@@ -8,6 +8,7 @@ interface RecommendPick {
   main: string[]
   aux: string[]
   score: number | null
+  collision: number
 }
 interface RecommendResult {
   kind: string
@@ -141,6 +142,7 @@ export function OnlinePage() {
                   <span className="muted">
                     {p.name}
                     {p.score != null ? ` · 结构分 ${p.score}` : ''}
+                    {` · 撞号 ${p.collision}`}
                   </span>
                   <span className="numbers">
                     {p.main.join('  ')}
@@ -158,6 +160,9 @@ export function OnlinePage() {
                   {recommend.data.analysis.avg_ac != null ? ` · 均AC ${recommend.data.analysis.avg_ac}` : ''}
                 </p>
               )}
+              <p className="muted" style={{ marginTop: 6 }}>
+                撞号指数越低，表示这注与大众热选号（生日号、吉利数、整十等）重叠越少；若中头奖需分摊的人越少——不改变中奖概率。
+              </p>
               {recommend.data.disclaimer && (
                 <p className="muted" style={{ marginTop: 4 }}>
                   {recommend.data.disclaimer}

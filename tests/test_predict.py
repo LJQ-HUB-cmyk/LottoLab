@@ -1,7 +1,16 @@
 """predict 确定性核心的单测（结构分/分区/AC/二项显著性）。"""
 
 import pytest
-from lottolab.predict import ac_value, binom_p, recommend, recommend_multi, struct_score, structure, zones_of
+from lottolab.predict import (
+    ac_value,
+    binom_p,
+    number_popularity,
+    recommend,
+    recommend_multi,
+    struct_score,
+    structure,
+    zones_of,
+)
 
 
 def test_zones_of_ssq():
@@ -91,24 +100,37 @@ def test_struct_score_bounds():
     assert degenerate <= 2
 
 
+def test_number_popularity_priors():
+    assert number_popularity(12) > number_popularity(33)  # 生日/月份热，33 覆盖不到
+    assert number_popularity(4) < number_popularity(3)  # 忌“4”反而冷门
+    assert number_popularity(8) > number_popularity(15)  # 吉利数更热
+    assert all(0.0 <= number_popularity(v) <= 1.0 for v in range(1, 81))
+
+
 def test_recommend_multi_ssq():
-    a = recommend_multi("ssq", SSQ_DRAWS, seed=7)
-    assert a["family"] == "pool" and len(a["picks"]) == 6
+    a = recommend_multi("ssq", SSQ_DRAWS, seed=7, groups=7)
+    assert a["family"] == "pool" and len(a["picks"]) == 7
     for p in a["picks"]:
         assert len(p["main"]) == 6 and len(set(p["main"])) == 6
         assert all(1 <= int(x) <= 33 for x in p["main"])
         assert len(p["aux"]) == 1 and 1 <= int(p["aux"][0]) <= 16
         assert isinstance(p["score"], int) and 0 <= p["score"] <= 12
-    assert recommend_multi("ssq", SSQ_DRAWS, seed=7) == a  # 同 seed 确定
-    assert recommend_multi("ssq", SSQ_DRAWS, seed=8)["picks"] != a["picks"]  # 换 seed 有变
+        assert isinstance(p["collision"], int) and 0 <= p["collision"] <= 100
+    avoid = next(p for p in a["picks"] if p["name"] == "冷门避撞")
+    assert avoid["collision"] == min(p["collision"] for p in a["picks"])
+    assert recommend_multi("ssq", SSQ_DRAWS, seed=7, groups=7) == a  # 同 seed 确定
+    assert recommend_multi("ssq", SSQ_DRAWS, seed=8, groups=7)["picks"] != a["picks"]  # 换 seed 有变
 
 
 def test_recommend_multi_digit_kinds():
     draws = [{"digits": [5, 1, 9, 5, 8, 5, 11]}, {"digits": [0, 1, 2, 3, 4, 5, 6]}]
-    a = recommend_multi("qxc", draws, seed=3)
-    assert a["family"] == "digit" and len(a["picks"]) == 4
+    a = recommend_multi("qxc", draws, seed=3, groups=7)
+    assert a["family"] == "digit" and len(a["picks"]) == 5
     for p in a["picks"]:
         assert len(p["main"]) == 7
         assert 0 <= int(p["main"][-1]) <= 14
         assert all(0 <= int(x) <= 9 for x in p["main"][:-1])
-    assert recommend_multi("qxc", draws, seed=3) == a
+        assert isinstance(p["collision"], int) and 0 <= p["collision"] <= 100
+    avoid = next(p for p in a["picks"] if p["name"] == "冷门避撞")
+    assert avoid["collision"] == min(p["collision"] for p in a["picks"])
+    assert recommend_multi("qxc", draws, seed=3, groups=7) == a

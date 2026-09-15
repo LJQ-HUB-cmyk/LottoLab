@@ -360,7 +360,7 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
         return verify_batch(kind, _as_online(kind, _rows(db, kind)), lines, codes)
 
     @app.get("/api/v1/recommend")
-    def recommend_ep(db: DB, kind: str = "ssq", seed: int = 1, groups: int = Query(6, ge=1, le=8)):
+    def recommend_ep(db: DB, kind: str = "ssq", seed: int = 1, groups: int = Query(7, ge=1, le=8)):
         if kind not in ONLINE_KINDS:
             raise HTTPException(400, "未知彩种")
         rows = _as_online(kind, _rows(db, kind))
