@@ -12,6 +12,8 @@ from typing import Any
 
 import numpy as np
 
+from .coldness import coldness
+
 PRIMES = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79}
 
 # pool 类彩种主区界（与 contract 对齐）：min, max, pick
@@ -451,7 +453,7 @@ def _weighted_pick(rng: random.Random, tokens: list[int], weights: list[int], k:
     return sorted(out)
 
 
-def _pick_aux(rng: random.Random, kind: str, draws: list[dict[str, Any]]) -> list[int]:
+def _pick_aux(rng: random.Random, kind: str, draws: list[dict[str, Any]], offset: int = 0) -> list[int]:
     spec = AUX_SPEC.get(kind)
     if not spec:
         return []
@@ -472,7 +474,25 @@ def _pick_aux(rng: random.Random, kind: str, draws: list[dict[str, Any]]) -> lis
     maxf = max(1, max(freq.values()))
     score = {v: (freq[v] / maxf) * 0.6 + min(1.0, omission[v] / 30) * 0.4 for v in range(lo, hi + 1)}
     ranked = sorted(score, key=lambda v: (-score[v], v))
-    return sorted(_rank_pick(rng, ranked, cnt))
+    start = offset % max(1, len(ranked) - cnt + 1)
+    return sorted(ranked[start : start + cnt])
+
+
+def _cold_aux(kind: str, draws: list[dict[str, Any]]) -> list[int]:
+    spec = AUX_SPEC.get(kind)
+    if not spec:
+        return []
+    lo, hi, cnt = spec
+    omission = {v: 0 for v in range(lo, hi + 1)}
+    for v in range(lo, hi + 1):
+        gap = 0
+        for d in reversed(draws):
+            if v in _aux_of(kind, d):
+                break
+            gap += 1
+        omission[v] = gap
+    ranked = sorted(omission, key=lambda v: (-omission[v], v))
+    return sorted(ranked[:cnt])
 
 
 def _low_pop_aux(kind: str) -> list[int]:
@@ -517,14 +537,19 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
         ("冷门避撞", _rank_pick(rng, by_pop, pick)),
     ]
     picks: list[dict[str, Any]] = []
-    for name, main in strategies[: max(1, groups)]:
+    for si, (name, main) in enumerate(strategies[: max(1, groups)]):
         main = sorted(set(main))[:pick]
         if len(main) < pick:
             main = sorted(set(main) | set(hot[:pick]))[:pick]
         if name == "冷门避撞":
             aux = _low_pop_aux(kind)
+        elif name == "进取·遗漏":
+            aux = _cold_aux(kind, draws)
+        elif name == "随机基准":
+            sa = AUX_SPEC.get(kind)
+            aux = sorted(rng.sample(range(sa[0], sa[1] + 1), sa[2])) if sa else []
         else:
-            aux = _pick_aux(rng, kind, draws)
+            aux = _pick_aux(rng, kind, draws, offset=si)
         picks.append(
             {
                 "name": name,
@@ -532,6 +557,7 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
                 "aux": [f"{v:02d}" for v in aux],
                 "score": struct_score(kind, main),
                 "collision": _collision(kind, main, aux, pop),
+                "coldness": coldness(kind, main, aux),
             }
         )
     analysis = {

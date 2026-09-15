@@ -3,12 +3,27 @@ import { api, useResource } from '../api'
 import { ErrorNote, Loading } from '../components'
 import { useWorkspace } from '../Workspace'
 
+interface ColdFactor {
+  key: string
+  label: string
+  effect: number
+}
+interface Coldness {
+  supported: boolean
+  ratio?: number
+  label?: string
+  estWinners?: number
+  avgFirstWinners?: number
+  factors?: ColdFactor[]
+  note?: string
+}
 interface RecommendPick {
   name: string
   main: string[]
   aux: string[]
   score: number | null
   collision: number
+  coldness?: Coldness
 }
 interface RecommendResult {
   kind: string
@@ -186,19 +201,32 @@ export function OnlinePage() {
           (recommend.data.picks && recommend.data.picks.length ? (
             <div>
               {recommend.data.picks.map((p) => (
-                <div
-                  key={p.name}
-                  style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0' }}
-                >
-                  <span className="muted">
-                    {p.name}
-                    {p.score != null ? ` · 结构分 ${p.score}` : ''}
-                    {` · 撞号 ${p.collision}`}
-                  </span>
-                  <span className="numbers">
-                    {p.main.join('  ')}
-                    {p.aux.length > 0 ? `  +  ${p.aux.join('  ')}` : ''}
-                  </span>
+                <div key={p.name} style={{ padding: '6px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span className="muted">
+                      {p.name}
+                      {p.score != null ? ` · 结构分 ${p.score}` : ''}
+                      {` · 撞号 ${p.collision}`}
+                    </span>
+                    <span className="numbers">
+                      {p.main.join('  ')}
+                      {p.aux.length > 0 ? `  +  ${p.aux.join('  ')}` : ''}
+                    </span>
+                  </div>
+                  {p.coldness &&
+                    (p.coldness.supported ? (
+                      <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
+                        冷门度 {p.coldness.label} · 预计同奖 {p.coldness.estWinners} 人（平均{' '}
+                        {p.coldness.avgFirstWinners}）
+                        {p.coldness.factors && p.coldness.factors.length
+                          ? ` · 因子：${p.coldness.factors.map((fc) => fc.label).join('；')}`
+                          : ''}
+                      </p>
+                    ) : (
+                      <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
+                        {p.coldness.note}
+                      </p>
+                    ))}
                 </div>
               ))}
               {recommend.data.analysis && (recommend.data.analysis.hot?.length ?? 0) > 0 && (

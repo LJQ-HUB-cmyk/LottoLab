@@ -1,10 +1,10 @@
-# 每周刷新各彩种真实一等奖/直选注数 → prizes['winner_count_1']，让撞号实测热度随最新数据更新。
-# 源不可达的彩种（境外 runner 常够不到 cwl/sporttery）自动跳过、不失败；样本不足时模型回退结构先验。
+# 每日刷新各彩种真实一等奖注数 + 销量 → prizes['winner_count_1'] + sales，让撞号/冷门度实测随最新数据更新。
+# 主源 17500（data.17500.cn，GitHub runner 可达）；cwl/sporttery 为备源、境外可能不可达→优雅跳过。
 # 依赖仓库 secret：DATABASE_URL（Neon 连接串）。
-name: weekly-winners
+name: daily-winners
 on:
   schedule:
-    - cron: "0 16 * * 1"     # 每周一 16:00 UTC（北京周一 00:00）
+    - cron: "40 15 * * *"     # 每日 15:40 UTC（北京 23:40，daily-sync 之后）
   workflow_dispatch: {}
 permissions:
   contents: read
