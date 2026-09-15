@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from lottolab.analysis import adjust_pvalues, overlap_pmf, randomness, simulate, sum_pmf, summarize, wilson
 from lottolab.backtest import run_backtest
+from lottolab.coldness import coldness
 from lottolab.domain import RULES
 from lottolab.ingestion import synthetic_records
 from lottolab.optimization import optimize_cover
@@ -105,6 +106,23 @@ def test_randomness_handles_digit_kinds():
     for t in result["tests"]:
         assert 0 <= t["p_value"] <= 1
         assert t["adjusted_p_value"] >= t["p_value"]
+
+
+def test_coldness_ssq():
+    hot = coldness("ssq", [3, 8, 15, 20, 27, 31], [8])  # 全≤31 + 含尾8 + 蓝球大热
+    assert (
+        hot["supported"]
+        and hot["ratio"] > 1
+        and hot["estWinners"] > hot["avgFirstWinners"]
+        and hot["factors"]
+    )
+    cold = coldness("ssq", [4, 12, 19, 24, 32, 33], [14])  # 含>31 + 含尾4 + 蓝球冷门
+    assert cold["supported"] and cold["ratio"] < 1
+
+
+def test_coldness_fixed_prize_unsupported():
+    r = coldness("kl8", list(range(1, 21)), [])
+    assert r["supported"] is False and r["note"]
 
 
 def test_simulation_reproducible_and_matches_known_distribution():
