@@ -28,6 +28,8 @@ def causal_features(draws: list[dict], rule: Rule, area: str = "main") -> tuple[
         if area == "main"
         else (rule.special_max, rule.special_count, "special_numbers")
     )
+    if maximum == 0 or chosen == 0:  # 空区域（如快乐8 无附加区）→ 返回空特征，避免除零
+        return np.zeros((len(draws), 0, len(FEATURE_NAMES))), np.zeros((len(draws), 0))
     prior = chosen / maximum
     counts = np.zeros(maximum)
     last_seen = np.full(maximum, -1)

@@ -5,9 +5,11 @@ from math import comb
 import numpy as np
 import pytest
 from lottolab.analysis import adjust_pvalues, overlap_pmf, randomness, simulate, sum_pmf, summarize, wilson
+from lottolab.backtest import run_backtest
 from lottolab.domain import RULES
 from lottolab.ingestion import synthetic_records
 from lottolab.optimization import optimize_cover
+from lottolab.schemas import BacktestRequest
 
 
 def test_exact_overlap_distribution_matches_enumeration():
@@ -128,6 +130,18 @@ def test_randomness_skips_empty_special_area():
     result = randomness(data, RULES["kl8"], trials=999, seed=1)
     assert all("附加区" not in t["name"] for t in result["tests"])
     assert result["number_of_tests"] > 0
+
+
+def test_backtest_handles_empty_special_area():
+    # 快乐8 无附加区：回测须正常跑完（不因 special 空区除零/拟合空特征崩溃）
+    data = synthetic_records("kl8", 200, 11)
+    cfg = BacktestRequest(
+        models=["uniform", "frequency"], test_draws=30, training_window=120, bootstrap_samples=500
+    )
+    result = run_backtest(data, RULES["kl8"], cfg)
+    assert len(result["models"]) == 2
+    for m in result["models"]:
+        assert m["metrics"]["special_hits"] == 0
 
 
 def test_cover_report_matches_independent_enumeration():
