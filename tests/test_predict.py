@@ -200,3 +200,24 @@ def test_collision_uses_learned_pop():
     with_hot = _collision("ssq", [1, 2, 3, 4, 5, 6], [7], pop)
     without_hot = _collision("ssq", [2, 3, 4, 5, 6, 7], [8], pop)
     assert with_hot > without_hot
+
+
+def test_learn_popularity_digit_recovers_hot_position():
+    import random as _r
+
+    r = _r.Random(0)
+    rows = []
+    for _ in range(300):
+        rows.append({"digits": [8, r.randint(0, 9), r.randint(0, 9)], "winners": 50, "sales": 1e8})
+    for _ in range(300):
+        rows.append(
+            {"digits": [r.choice([0, 1, 2, 3, 4, 5, 6, 7, 9]) for _ in range(3)], "winners": 1, "sales": 1e8}
+        )
+    pop = _learn_popularity("pl3", rows)
+    assert isinstance(pop, list) and len(pop) == 3
+    assert pop[0][8] == max(pop[0].values())  # 首位数字 8 被学成最热
+
+
+def test_collision_digit_uses_learned_pop():
+    pop = [{8: 1.0, **{d: 0.0 for d in range(10) if d != 8}} for _ in range(3)]
+    assert _collision("pl3", [8, 8, 8], [], pop) > _collision("pl3", [0, 0, 0], [], pop)
