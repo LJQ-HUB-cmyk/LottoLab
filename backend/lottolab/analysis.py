@@ -252,9 +252,70 @@ def _joint_null_statistics(rng, population, chosen, size, trials, include_sum=Fa
     return np.asarray(frequency_scores), np.asarray(sum_scores)
 
 
+def _digit_randomness(draws: list[dict], rule: Rule, seed: int) -> dict:
+    """数字型随机性检验：逐位数字均匀性的卡方拟合优度（精确分布，非 Monte Carlo）。"""
+    size = len(draws)
+    if size < 30:
+        raise ValueError("随机性检验至少需要 30 期记录")
+    pos = rule.main_count
+    ranges = [
+        rule.last_max if (rule.last_max is not None and i == pos - 1) else rule.main_max for i in range(pos)
+    ]
+    tests: list[dict] = []
+    for p in range(pos):
+        hi = ranges[p]
+        k = hi + 1
+        counts = np.zeros(k)
+        for d in draws:
+            vals = d["main_numbers"]
+            if p < len(vals):
+                v = int(vals[p])
+                if 0 <= v < k:
+                    counts[v] += 1
+        exp = size / k
+        stat = float(((counts - exp) ** 2 / exp).sum())
+        p_value = float(chi2.sf(stat, k - 1))
+        tests.append(
+            {
+                "name": f"第 {p + 1} 位 数字均匀性",
+                "method": "卡方拟合优度（df = 取值数 − 1）",
+                "statistic": round(stat, 4),
+                "p_value": p_value,
+                "effect_size": round(stat / size, 5),
+                "effect_label": "χ²/期（Cramér 型效应）",
+            }
+        )
+    n_tests = len(tests)
+    for t in tests:
+        t["adjusted_p_value"] = min(1.0, t["p_value"] * n_tests)
+        t["significant"] = t["adjusted_p_value"] < 0.05
+    significant = sum(t["significant"] for t in tests)
+    return {
+        "family": "digit",
+        "sample_size": size,
+        "trials": 0,
+        "seed": seed,
+        "correction": "bonferroni",
+        "number_of_tests": n_tests,
+        "correction_family_size": n_tests,
+        "significant_count": significant,
+        "verdict": "REVIEW_NEEDED" if significant else "NOT_SIGNIFICANT",
+        "tests": tests,
+        "start_issue": draws[0]["issue"],
+        "end_issue": draws[-1]["issue"],
+        "interpretation": "逐位数字均匀性检验；校正后存在需复核的偏离，不等于可预测。"
+        if significant
+        else "本次逐位检验未检出校正后显著偏离；这不证明绝对随机。",
+        "limitations": [
+            "数字型按位做卡方拟合优度检验，用精确 χ² 分布求 p 值（无 Monte Carlo 模拟）。",
+            "各位独立检验后做 Bonferroni 校正；有限样本检验功效有限，显著偏离不等于可预测。",
+        ],
+    }
+
+
 def randomness(draws: list[dict], rule: Rule, *, trials: int = 4999, seed: int = 2026) -> dict:
     if rule.family == "DIGIT":
-        raise ValueError("随机性检验基于池型不放回零模型，仅对双色球/大乐透等池型彩种提供；数字型彩种不适用")
+        return _digit_randomness(draws, rule, seed)
     size = len(draws)
     if size < 30:
         raise ValueError("随机性检验至少需要 30 期记录")
