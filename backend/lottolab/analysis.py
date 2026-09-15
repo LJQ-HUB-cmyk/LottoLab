@@ -266,6 +266,8 @@ def randomness(draws: list[dict], rule: Rule, *, trials: int = 4999, seed: int =
         ("main", "主区", rule.main_max, rule.main_count, "main_numbers"),
         ("special", "附加区", rule.special_max, rule.special_count, "special_numbers"),
     ):
+        if chosen == 0 or maximum == 0:  # 无该区域号码（如快乐8 无附加区）→ 跳过，避免除零
+            continue
         matrix = incidence(draws, maximum, field)
         counts = matrix.sum(axis=0)
         probability = chosen / maximum

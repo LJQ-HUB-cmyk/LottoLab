@@ -11,7 +11,7 @@ export const LOTTERY_NAME: Record<Lottery, string> = {
   pl5: '排列5',
   qxc: '七星彩',
 }
-export const POOL_RESEARCH: Lottery[] = ['ssq', 'dlt']
+export const POOL_RESEARCH: Lottery[] = ['ssq', 'dlt', 'qlc']
 export type DatasetKind = 'real' | 'synthetic'
 export interface Scope {
   lottery: Lottery
