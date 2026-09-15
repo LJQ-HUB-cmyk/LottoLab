@@ -10,6 +10,8 @@ import math
 import random
 from typing import Any
 
+import numpy as np
+
 PRIMES = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79}
 
 # pool 类彩种主区界（与 contract 对齐）：min, max, pick
@@ -193,16 +195,62 @@ def number_popularity(value: int) -> float:
     return max(0.0, min(1.0, p))
 
 
-def _collision(kind: str, main: list[int], aux: list[int]) -> int:
-    """撞号指数 0–100，越低越可能独享奖金。数字型按每位数字先验，池型按号码先验（含辅区）。"""
+def _collision(kind: str, main: list[int], aux: list[int], pop: dict[int, float] | None = None) -> int:
+    """撞号指数 0–100，越低越可能独享奖金。数字型按每位数字先验，池型按号码先验（含辅区）；
+    池型若传入实测热度 pop，则优先用实测值。"""
     spec = PICK.get(kind, {})
     if "digit" in spec:
         pops = [DIGIT_POP.get(int(v), 0.5) for v in main]
     else:
-        pops = [number_popularity(int(v)) for v in list(main) + list(aux or [])]
+        source = pop or {}
+        pops = [source.get(int(v), number_popularity(int(v))) for v in list(main) + list(aux or [])]
     if not pops:
         return 0
     return round(sum(pops) / len(pops) * 100)
+
+
+def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> dict[int, float] | None:
+    """从真实一等奖注数回归每位号码的相对热度（控制销量）。样本不足或退化则返回 None。"""
+    spec = PICK.get(kind)
+    if not spec or "digit" in spec or kind not in POOL_SPEC:
+        return None
+    _lo, hi, _pick = POOL_SPEC[kind]
+    field = spec["field"][0]
+    X: list[list[float]] = []
+    y: list[float] = []
+    for r in rows:
+        winners = r.get("winners")
+        if winners is None:
+            continue
+        nums = {int(v) for v in (r.get(field) or [])}
+        if not nums:
+            continue
+        vec = [1.0 if v in nums else 0.0 for v in range(1, hi + 1)]
+        sales = r.get("sales")
+        if sales:
+            try:
+                vec.append(math.log10(float(sales)))
+            except (TypeError, ValueError):
+                vec.append(0.0)
+        else:
+            vec.append(0.0)
+        X.append(vec)
+        y.append(math.log1p(float(winners)))
+    if len(y) < 200:
+        return None
+    A = np.asarray(X)
+    b = np.asarray(y)
+    lam = 1.0
+    reg = A.T @ A + lam * np.eye(A.shape[1])
+    try:
+        coef = np.linalg.solve(reg, A.T @ b)
+    except np.linalg.LinAlgError:
+        return None
+    raw = coef[:hi]
+    lo, mx = float(raw.min()), float(raw.max())
+    if mx - lo < 1e-9:
+        return None
+    return {v + 1: float((raw[v] - lo) / (mx - lo)) for v in range(hi)}
 
 
 def _main_of(kind: str, row: dict[str, Any]) -> list[int]:
@@ -397,6 +445,7 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
     if kind not in POOL_SPEC:
         raise ValueError(f"{kind} 暂不支持多策略推荐")
     an = analyze_pool(kind, draws)
+    pop = _learn_popularity(kind, draws)
     lo, hi, pick = POOL_SPEC[kind]
     all_tokens = list(range(lo, hi + 1))
     freq = an["freq"]
@@ -405,7 +454,8 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
     by_omit = sorted(all_tokens, key=lambda v: (-omission[v], v))
     half = pick // 2
     balanced = hot[:half] + an["cold"][: pick - half]
-    by_pop = sorted(all_tokens, key=lambda v: (number_popularity(v), v))
+    pop_key = (lambda v: (pop[v], v)) if pop else (lambda v: (number_popularity(v), v))
+    by_pop = sorted(all_tokens, key=pop_key)
     strategies: list[tuple[str, list[int]]] = [
         ("稳健·热号", _rank_pick(rng, hot, pick)),
         ("进取·遗漏", _rank_pick(rng, by_omit, pick)),
@@ -430,7 +480,7 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
                 "main": [f"{v:02d}" for v in main],
                 "aux": [f"{v:02d}" for v in aux],
                 "score": struct_score(kind, main),
-                "collision": _collision(kind, main, aux),
+                "collision": _collision(kind, main, aux, pop),
             }
         )
     analysis = {
@@ -447,6 +497,7 @@ def recommend_multi(kind: str, draws: list[dict[str, Any]], seed: int = 1, group
         "family": "pool",
         "picks": picks,
         "analysis": analysis,
+        "basis": "实测（一等奖注数回归，控销量）" if pop else "结构先验（生日/吉利/整数）",
         "disclaimer": DISCLAIMER_RECOMMEND,
     }
 
