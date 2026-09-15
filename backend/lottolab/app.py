@@ -28,7 +28,7 @@ from .config import Settings, get_settings
 from .db import Draw, IngestionRun, Job, QualityIssue, make_engine, make_session_factory, now
 from .domain import DISCLAIMER, RULES, DatasetKind, DrawInput, Lottery
 from .ingestion import digest, freeze_dataset, ingest_records, load_draws, parse_csv
-from .predict import recommend, recommend_multi
+from .predict import backtest_strategies, recommend, recommend_multi
 from .schemas import (
     BacktestRequest,
     CoverRequest,
@@ -375,6 +375,15 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
             "analysis": multi["analysis"],
             "disclaimer": multi["disclaimer"],
         }
+
+    @app.get("/api/v1/recommend/backtest")
+    def recommend_backtest_ep(db: DB, kind: str = "ssq", window: int = Query(120, ge=20, le=300)):
+        if kind not in ONLINE_KINDS:
+            raise HTTPException(400, "未知彩种")
+        rows = _as_online(kind, _rows(db, kind))
+        if not rows:
+            raise HTTPException(404, f"{kind} 暂无可用开奖数据")
+        return backtest_strategies(kind, rows, window)
 
     @app.get("/api/v1/ingestions")
     def ingestions(db: DB, lottery: Lottery = "ssq", dataset_kind: DatasetKind = "real"):

@@ -3,6 +3,7 @@
 import pytest
 from lottolab.predict import (
     ac_value,
+    backtest_strategies,
     binom_p,
     number_popularity,
     recommend,
@@ -134,3 +135,37 @@ def test_recommend_multi_digit_kinds():
     avoid = next(p for p in a["picks"] if p["name"] == "冷门避撞")
     assert avoid["collision"] == min(p["collision"] for p in a["picks"])
     assert recommend_multi("qxc", draws, seed=3, groups=7) == a
+
+
+def _online_rows(kind: str, n: int) -> list[dict]:
+    import random as _random
+
+    r = _random.Random(1)
+    rows = []
+    for i in range(n):
+        code = f"2025{i:03d}"
+        if kind == "qxc":
+            rows.append({"code": code, "digits": [r.randint(0, 9) for _ in range(6)] + [r.randint(0, 14)]})
+        else:
+            rows.append({"code": code, "red": sorted(r.sample(range(1, 34), 6)), "blue": r.randint(1, 16)})
+    return rows
+
+
+def test_backtest_strategies_ssq():
+    res = backtest_strategies("ssq", _online_rows("ssq", 120), window=40)
+    assert res["family"] == "pool" and res["tested"] >= 20 and len(res["strategies"]) == 7
+    assert res["expected_mean_hits"] == pytest.approx(6 * 6 / 33, abs=0.05)
+    for s in res["strategies"]:
+        assert 0.2 <= s["mean_hits"] <= 2.5  # 贴着随机期望，无一枝独秀
+        assert sum(s["hit_distribution"].values()) == res["tested"]
+
+
+def test_backtest_strategies_digit():
+    res = backtest_strategies("qxc", _online_rows("qxc", 120), window=40)
+    assert res["family"] == "digit" and len(res["strategies"]) == 5
+    assert res["expected_mean_hits"] == pytest.approx(6 / 10 + 1 / 15, abs=0.05)
+
+
+def test_backtest_requires_enough_data():
+    with pytest.raises(ValueError):
+        backtest_strategies("ssq", _online_rows("ssq", 30), window=40)
