@@ -96,13 +96,15 @@ def test_summarize_handles_digit_kinds():
     assert digit_counts[0] == 1 and digit_counts[9] == 1
 
 
-def test_randomness_rejects_digit_kinds():
-    data = [
-        {"issue": f"26{100 + i:03d}", "draw_date": "2026-09-07", "main_numbers": [i % 10, 1, 2, 3, 4, 5, 7]}
-        for i in range(40)
-    ]
-    with pytest.raises(ValueError):
-        randomness(data, RULES["qxc"], trials=999, seed=1)
+def test_randomness_handles_digit_kinds():
+    # 数字型随机性检验：逐位数字均匀性卡方（不再拒绝）
+    data = synthetic_records("qxc", 200, 5)
+    result = randomness(data, RULES["qxc"], trials=999, seed=1)
+    assert result["family"] == "digit"
+    assert len(result["tests"]) == 7  # 七星彩 7 位
+    for t in result["tests"]:
+        assert 0 <= t["p_value"] <= 1
+        assert t["adjusted_p_value"] >= t["p_value"]
 
 
 def test_simulation_reproducible_and_matches_known_distribution():

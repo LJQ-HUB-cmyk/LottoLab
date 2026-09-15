@@ -118,10 +118,10 @@ export function App() {
     methodology: MethodologyPage,
   }
   const CurrentPage = pages[route] || Dashboard
-  const researchOnly = ['statistics', 'models', 'backtest', 'simulation', 'covering'].includes(route)
+  const poolOnlyResearch = ['models', 'backtest', 'simulation'].includes(route)
   const coverable = ['ssq', 'dlt', 'qlc']
   const researchUnsupported =
-    (researchOnly && !POOL_RESEARCH.includes(lottery)) ||
+    (poolOnlyResearch && !POOL_RESEARCH.includes(lottery)) ||
     (route === 'covering' && !coverable.includes(lottery))
   const busy = sourcePending || job?.status === 'queued' || job?.status === 'running'
   const readable = health.data?.can_read === true

@@ -41,6 +41,7 @@ export function StatisticsPage() {
   const experiment = useExperiment<RandomnessResult>(workspace, 'randomness', '/statistics/randomness')
   const result = experiment.job?.status === 'completed' ? experiment.job.result : null
   const data = stats.data
+  const isDigit = data?.family === 'digit'
   const pairs = [...(data?.cooccurrence || [])].sort((a, b) => b.count - a.count)
   return (
     <>
@@ -62,7 +63,7 @@ export function StatisticsPage() {
       <div className="tabs" role="tablist" aria-label="统计类型">
         {[
           ['frequency', '频率与遗漏'],
-          ['structure', '组合结构'],
+          ...(isDigit ? [] : [['structure', '组合结构']]),
           ['tests', '随机性检验'],
         ].map(([id, label]) => (
           <button
@@ -88,14 +89,16 @@ export function StatisticsPage() {
               title="逐号码观察"
               subtitle={`本次窗口实际包含 ${data.sample_size} 期；区间是历史入选频率的 95% Wilson 区间。`}
               action={
-                <div className="segmented">
-                  <button className={area === 'main' ? 'active' : ''} onClick={() => setArea('main')}>
-                    主区
-                  </button>
-                  <button className={area === 'special' ? 'active' : ''} onClick={() => setArea('special')}>
-                    附加区
-                  </button>
-                </div>
+                !isDigit ? (
+                  <div className="segmented">
+                    <button className={area === 'main' ? 'active' : ''} onClick={() => setArea('main')}>
+                      主区
+                    </button>
+                    <button className={area === 'special' ? 'active' : ''} onClick={() => setArea('special')}>
+                      附加区
+                    </button>
+                  </div>
+                ) : undefined
               }
             >
               <div className="number-map">
@@ -147,7 +150,7 @@ export function StatisticsPage() {
               </div>
             </Panel>
           )}
-          {tab === 'structure' && (
+          {tab === 'structure' && !isDigit && (
             <div className="grid-two">
               <Panel title="主区和值分布" subtitle="理论曲线来自完整组合空间的精确计数。">
                 <div className="chart">
