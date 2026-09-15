@@ -2,6 +2,8 @@
 
 import pytest
 from lottolab.predict import (
+    _collision,
+    _learn_popularity,
     ac_value,
     backtest_strategies,
     binom_p,
@@ -169,3 +171,32 @@ def test_backtest_strategies_digit():
 def test_backtest_requires_enough_data():
     with pytest.raises(ValueError):
         backtest_strategies("ssq", _online_rows("ssq", 30), window=40)
+
+
+def test_learn_popularity_recovers_hot_number():
+    import random as _r
+
+    r = _r.Random(0)
+    rows = []
+    for _ in range(160):
+        others = r.sample(range(2, 34), 5)
+        rows.append({"red": sorted([1, *others]), "winners": 25, "sales": 1e8})
+    for _ in range(160):
+        nums = r.sample(range(2, 34), 6)
+        rows.append({"red": sorted(nums), "winners": 1, "sales": 1e8})
+    pop = _learn_popularity("ssq", rows)
+    assert pop is not None
+    assert pop[1] == max(pop.values())  # 号码 1 被学成最热
+
+
+def test_learn_popularity_insufficient():
+    rows = [{"red": [1, 2, 3, 4, 5, 6], "winners": 3, "sales": 1e8} for _ in range(50)]
+    assert _learn_popularity("ssq", rows) is None
+
+
+def test_collision_uses_learned_pop():
+    pop = {v: 0.0 for v in range(1, 34)}
+    pop[1] = 1.0
+    with_hot = _collision("ssq", [1, 2, 3, 4, 5, 6], [7], pop)
+    without_hot = _collision("ssq", [2, 3, 4, 5, 6, 7], [8], pop)
+    assert with_hot > without_hot

@@ -335,6 +335,18 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
                 base.update(nums=main)
             else:
                 base.update(digits=main)
+            prizes = r.get("prizes") or {}
+            wc = prizes.get("winner_count_1")
+            if wc is not None:
+                try:
+                    base["winners"] = int(wc)
+                except (TypeError, ValueError):
+                    pass
+            if r.get("sales"):
+                try:
+                    base["sales"] = float(r["sales"])
+                except (TypeError, ValueError):
+                    pass
             out.append(base)
         return out
 
