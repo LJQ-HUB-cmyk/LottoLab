@@ -65,6 +65,20 @@ interface BacktestResult {
   disclaimer: string
 }
 
+function downloadPicksCsv(kind: string, picks: RecommendPick[]) {
+  const header = '彩种,策略,主区,辅区,结构分,撞号指数'
+  const rows = picks.map((p) =>
+    [kind, p.name, p.main.join(' '), p.aux.join(' '), p.score ?? '', p.collision].join(','),
+  )
+  const csv = '' + [header, ...rows].join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${kind}-推荐票面.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function OnlinePage() {
   const { lottery, datasetKind, version } = useWorkspace()
   const [seed, setSeed] = useState(1)
@@ -156,6 +170,14 @@ export function OnlinePage() {
             <button className="button" onClick={() => setSeed((s) => s + 1)}>
               +
             </button>
+            {(recommend.data?.picks?.length ?? 0) > 0 && (
+              <button
+                className="button button-quiet"
+                onClick={() => downloadPicksCsv(lottery, recommend.data!.picks)}
+              >
+                导出票面 CSV
+              </button>
+            )}
           </div>
         </div>
         <ErrorNote message={recommend.error} />
