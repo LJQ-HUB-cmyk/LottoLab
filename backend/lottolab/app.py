@@ -385,6 +385,7 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
             "family": multi["family"],
             "picks": multi["picks"],
             "analysis": multi["analysis"],
+            "basis": multi["basis"],
             "disclaimer": multi["disclaimer"],
         }
 

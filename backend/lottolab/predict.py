@@ -195,12 +195,15 @@ def number_popularity(value: int) -> float:
     return max(0.0, min(1.0, p))
 
 
-def _collision(kind: str, main: list[int], aux: list[int], pop: dict[int, float] | None = None) -> int:
-    """撞号指数 0–100，越低越可能独享奖金。数字型按每位数字先验，池型按号码先验（含辅区）；
-    池型若传入实测热度 pop，则优先用实测值。"""
+def _collision(kind: str, main: list[int], aux: list[int], pop: Any = None) -> int:
+    """撞号指数 0–100，越低越可能独享奖金。数字型按每位数字先验（或实测逐位热度），
+    池型按号码先验（或实测号码热度，含辅区）。pop：池型为 dict[号码,0..1]，数字型为 list[dict[数字,0..1]]。"""
     spec = PICK.get(kind, {})
     if "digit" in spec:
-        pops = [DIGIT_POP.get(int(v), 0.5) for v in main]
+        if isinstance(pop, list):
+            pops = [pop[i].get(int(v), 0.5) if i < len(pop) else 0.5 for i, v in enumerate(main)]
+        else:
+            pops = [DIGIT_POP.get(int(v), 0.5) for v in main]
     else:
         source = pop or {}
         pops = [source.get(int(v), number_popularity(int(v))) for v in list(main) + list(aux or [])]
@@ -209,10 +212,15 @@ def _collision(kind: str, main: list[int], aux: list[int], pop: dict[int, float]
     return round(sum(pops) / len(pops) * 100)
 
 
-def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> dict[int, float] | None:
-    """从真实一等奖注数回归每位号码的相对热度（控制销量）。样本不足或退化则返回 None。"""
+def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> Any:
+    """从真实一等奖/直选注数回归号码相对热度（控制销量）。样本不足或退化返回 None。
+    池型返回 dict[号码,0..1]；数字型返回 list[dict[数字,0..1]]（逐位）。"""
     spec = PICK.get(kind)
-    if not spec or "digit" in spec or kind not in POOL_SPEC:
+    if not spec:
+        return None
+    if "digit" in spec:
+        return _learn_popularity_digit(kind, rows, spec)
+    if kind not in POOL_SPEC:
         return None
     _lo, hi, _pick = POOL_SPEC[kind]
     field = spec["field"][0]
@@ -227,12 +235,9 @@ def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> dict[int, float]
             continue
         vec = [1.0 if v in nums else 0.0 for v in range(1, hi + 1)]
         sales = r.get("sales")
-        if sales:
-            try:
-                vec.append(math.log10(float(sales)))
-            except (TypeError, ValueError):
-                vec.append(0.0)
-        else:
+        try:
+            vec.append(math.log10(float(sales)) if sales else 0.0)
+        except (TypeError, ValueError):
             vec.append(0.0)
         X.append(vec)
         y.append(math.log1p(float(winners)))
@@ -240,8 +245,7 @@ def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> dict[int, float]
         return None
     A = np.asarray(X)
     b = np.asarray(y)
-    lam = 1.0
-    reg = A.T @ A + lam * np.eye(A.shape[1])
+    reg = A.T @ A + np.eye(A.shape[1])
     try:
         coef = np.linalg.solve(reg, A.T @ b)
     except np.linalg.LinAlgError:
@@ -251,6 +255,53 @@ def _learn_popularity(kind: str, rows: list[dict[str, Any]]) -> dict[int, float]
     if mx - lo < 1e-9:
         return None
     return {v + 1: float((raw[v] - lo) / (mx - lo)) for v in range(hi)}
+
+
+def _learn_popularity_digit(kind: str, rows: list[dict[str, Any]], spec: dict[str, Any]) -> Any:
+    pos = int(spec["digit"])
+    last_hi = int(spec.get("last_hi", 9))
+    field = spec["field"][0]
+    ranges = [last_hi if (kind == "qxc" and p == pos - 1) else 9 for p in range(pos)]
+    cols: list[tuple[int, int]] = [(p, d) for p in range(pos) for d in range(0, ranges[p] + 1)]
+    index = {c: i for i, c in enumerate(cols)}
+    X: list[list[float]] = []
+    y: list[float] = []
+    for r in rows:
+        winners = r.get("winners")
+        if winners is None:
+            continue
+        dg = r.get(field) or []
+        if len(dg) < pos:
+            continue
+        vec = [0.0] * (len(cols) + 1)
+        for p in range(pos):
+            d = int(dg[p])
+            if 0 <= d <= ranges[p]:
+                vec[index[(p, d)]] = 1.0
+        sales = r.get("sales")
+        try:
+            vec[-1] = math.log10(float(sales)) if sales else 0.0
+        except (TypeError, ValueError):
+            vec[-1] = 0.0
+        X.append(vec)
+        y.append(math.log1p(float(winners)))
+    if len(y) < 200:
+        return None
+    A = np.asarray(X)
+    b = np.asarray(y)
+    reg = A.T @ A + np.eye(A.shape[1])
+    try:
+        coef = np.linalg.solve(reg, A.T @ b)
+    except np.linalg.LinAlgError:
+        return None
+    raw = coef[: len(cols)]
+    lo, mx = float(raw.min()), float(raw.max())
+    if mx - lo < 1e-9:
+        return None
+    per_pos: list[dict[int, float]] = [{} for _ in range(pos)]
+    for (p, d), val in zip(cols, raw, strict=True):
+        per_pos[p][d] = float((val - lo) / (mx - lo))
+    return per_pos
 
 
 def _main_of(kind: str, row: dict[str, Any]) -> list[int]:
@@ -509,6 +560,7 @@ def _recommend_multi_digit(
     pos = int(spec["digit"])
     last_hi = int(spec.get("last_hi", 9))
     field = spec["field"][0]
+    pop = _learn_popularity(kind, draws)
 
     def pos_scores(p: int) -> dict[int, int]:
         hi = last_hi if (kind == "qxc" and p == pos - 1) else 9
@@ -536,7 +588,13 @@ def _recommend_multi_digit(
                 ranked = sorted(counts, key=lambda v: (-counts[v], v))
                 out.append(ranked[min(1, len(ranked) - 1)])
             elif mode == "avoid":
-                out.append(min(range(0, hi + 1), key=lambda v: (DIGIT_POP.get(v, number_popularity(v)), v)))
+                if isinstance(pop, list) and p < len(pop):
+                    weights = pop[p]
+                    out.append(min(range(0, hi + 1), key=lambda v: (weights.get(v, 0.5), v)))
+                else:
+                    out.append(
+                        min(range(0, hi + 1), key=lambda v: (DIGIT_POP.get(v, number_popularity(v)), v))
+                    )
             else:
                 out.append(rng.randint(0, hi))
         return out
@@ -557,7 +615,7 @@ def _recommend_multi_digit(
                 "main": [str(v) for v in digits],
                 "aux": [],
                 "score": None,
-                "collision": _collision(kind, digits, []),
+                "collision": _collision(kind, digits, [], pop),
             }
         )
     return {
@@ -565,6 +623,7 @@ def _recommend_multi_digit(
         "family": "digit",
         "picks": picks,
         "analysis": {},
+        "basis": "实测（直选/一等奖注数回归，控销量）" if isinstance(pop, list) else "结构先验（数字偏好）",
         "disclaimer": DISCLAIMER_RECOMMEND,
     }
 
