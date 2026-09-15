@@ -122,6 +122,14 @@ def test_randomness_has_calibrated_nonzero_monte_carlo_pvalues():
     # We deliberately do not demand non-significance on a finite random sample.
 
 
+def test_randomness_skips_empty_special_area():
+    # 快乐8 无附加区（special_count=0）：随机性检验须跳过空区，不得除零崩溃
+    data = synthetic_records("kl8", 60, 7)
+    result = randomness(data, RULES["kl8"], trials=999, seed=1)
+    assert all("附加区" not in t["name"] for t in result["tests"])
+    assert result["number_of_tests"] > 0
+
+
 def test_cover_report_matches_independent_enumeration():
     pool = [1, 2, 3, 4, 5, 6, 7]
     result = optimize_cover(RULES["ssq"], pool, 2, 5, 42, 5000)
