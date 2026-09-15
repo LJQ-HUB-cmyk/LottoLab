@@ -119,7 +119,10 @@ export function App() {
   }
   const CurrentPage = pages[route] || Dashboard
   const researchOnly = ['statistics', 'models', 'backtest', 'simulation', 'covering'].includes(route)
-  const researchUnsupported = researchOnly && !POOL_RESEARCH.includes(lottery)
+  const coverable = ['ssq', 'dlt', 'qlc']
+  const researchUnsupported =
+    (researchOnly && !POOL_RESEARCH.includes(lottery)) ||
+    (route === 'covering' && !coverable.includes(lottery))
   const busy = sourcePending || job?.status === 'queued' || job?.status === 'running'
   const readable = health.data?.can_read === true
   return (

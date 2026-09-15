@@ -1,0 +1,29 @@
+# 每周刷新各彩种真实一等奖/直选注数 → prizes['winner_count_1']，让撞号实测热度随最新数据更新。
+# 源不可达的彩种（境外 runner 常够不到 cwl/sporttery）自动跳过、不失败；样本不足时模型回退结构先验。
+# 依赖仓库 secret：DATABASE_URL（Neon 连接串）。
+name: weekly-winners
+on:
+  schedule:
+    - cron: "0 16 * * 1"     # 每周一 16:00 UTC（北京周一 00:00）
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: pip install -r requirements.lock && pip install --no-deps -e .
+      - name: Refresh real winner counts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python collector/refresh_winners.py
+      - name: Notice
+        if: failure()
+        run: echo "::warning::注数刷新失败，请检查 cwl/sporttery 可达性与 DATABASE_URL"

@@ -119,14 +119,15 @@ def run_backtest(
                     main_estimator is None or (t - start) % config.retrain_every == 0
                 ):
                     main_estimator = new_estimator(model_id, config.seed)
-                    special_estimator = new_estimator(model_id, config.seed)
                     main_estimator.fit(
                         main_x[train_start:t].reshape(-1, len(FEATURE_NAMES)), main_y[train_start:t].ravel()
                     )
-                    special_estimator.fit(
-                        special_x[train_start:t].reshape(-1, len(FEATURE_NAMES)),
-                        special_y[train_start:t].ravel(),
-                    )
+                    if rule.special_count:
+                        special_estimator = new_estimator(model_id, config.seed)
+                        special_estimator.fit(
+                            special_x[train_start:t].reshape(-1, len(FEATURE_NAMES)),
+                            special_y[train_start:t].ravel(),
+                        )
                     fit_events.append(
                         {
                             "model": model_id,
@@ -139,30 +140,41 @@ def run_backtest(
                     )
                 if model_id == "uniform":
                     main_p = np.full(rule.main_max, rule.main_count / rule.main_max)
-                    special_p = np.full(rule.special_max, rule.special_count / rule.special_max)
                 elif model_id == "frequency":
                     begin = max(0, t - min(100, config.training_window))
                     main_p = (main_y[begin:t].sum(axis=0) + 2 * rule.main_count / rule.main_max) / (
                         t - begin + 2
                     )
-                    special_p = (
-                        special_y[begin:t].sum(axis=0) + 2 * rule.special_count / rule.special_max
-                    ) / (t - begin + 2)
                 else:
-                    assert main_estimator is not None and special_estimator is not None
+                    assert main_estimator is not None
                     main_p = coherent_marginals(
                         main_estimator.predict_proba(main_x[t])[:, 1], rule.main_count
                     )
-                    special_p = coherent_marginals(
-                        special_estimator.predict_proba(special_x[t])[:, 1], rule.special_count
-                    )
                 main_ticket = choose_top(main_p, rule.main_count, rng)
-                special_ticket = choose_top(special_p, rule.special_count, rng)
                 actual = draws[t]
                 main_hits = len(set(main_ticket) & set(actual["main_numbers"]))
-                special_hits = len(set(special_ticket) & set(actual["special_numbers"]))
                 main_brier, main_loss = binary_metrics(main_p, main_y[t])
-                special_brier, special_loss = binary_metrics(special_p, special_y[t])
+                if rule.special_count:
+                    if model_id == "uniform":
+                        special_p = np.full(rule.special_max, rule.special_count / rule.special_max)
+                    elif model_id == "frequency":
+                        begin = max(0, t - min(100, config.training_window))
+                        special_p = (
+                            special_y[begin:t].sum(axis=0) + 2 * rule.special_count / rule.special_max
+                        ) / (t - begin + 2)
+                    else:
+                        assert special_estimator is not None
+                        special_p = coherent_marginals(
+                            special_estimator.predict_proba(special_x[t])[:, 1], rule.special_count
+                        )
+                    special_ticket = choose_top(special_p, rule.special_count, rng)
+                    special_hits = len(set(special_ticket) & set(actual["special_numbers"]))
+                    special_brier, special_loss = binary_metrics(special_p, special_y[t])
+                else:
+                    special_p = np.zeros(0)
+                    special_ticket = []
+                    special_hits = 0
+                    special_brier, special_loss = 0.0, 0.0
                 reward = None
                 if rule.code == "ssq" and config.dataset_kind == "real":
                     tier = ssq_prize_tier(main_hits, special_hits)
