@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -217,6 +218,41 @@ class Job(Base):
         if detail:
             data["result"] = self.result
         return data
+
+
+class PredictionLog(Base):
+    __tablename__ = "prediction_logs"
+    __table_args__ = (Index("ix_pred_kind_issue", "kind", "target_issue"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    kind: Mapped[str] = mapped_column(String(8))
+    dataset_kind: Mapped[str] = mapped_column(String(12), default="real")
+    target_issue: Mapped[str] = mapped_column(String(32))
+    seed: Mapped[int] = mapped_column(Integer, default=1)
+    strategy: Mapped[str] = mapped_column(String(40), default="")
+    main_numbers: Mapped[list] = mapped_column(JSON, default=list)
+    special_numbers: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    hit_main: Mapped[int | None] = mapped_column(Integer)
+    hit_special: Mapped[int | None] = mapped_column(Integer)
+    prize: Mapped[str | None] = mapped_column(String(40))
+
+    def public(self) -> dict:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "dataset_kind": self.dataset_kind,
+            "target_issue": self.target_issue,
+            "seed": self.seed,
+            "strategy": self.strategy,
+            "main_numbers": self.main_numbers,
+            "special_numbers": self.special_numbers,
+            "created_at": self.created_at.isoformat(),
+            "checked": self.checked,
+            "hit_main": self.hit_main,
+            "hit_special": self.hit_special,
+            "prize": self.prize,
+        }
 
 
 def make_engine(url: str, *, pooled: bool = True):
