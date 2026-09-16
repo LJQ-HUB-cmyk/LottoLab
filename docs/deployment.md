@@ -2,7 +2,7 @@
 
 [首页](../README.md) / 部署指南
 
-LottoLab 支持 Vercel + PostgreSQL 云端部署，以及 Docker 自托管。以下步骤面向你自己的实例；新部署需要独立配置数据库与管理员令牌。
+LottoLab 支持 Vercel + PostgreSQL 云端部署，以及 Docker 自托管。以下步骤面向你自己的实例；新部署需要独立配置数据库。云端默认公开访问（无需管理员令牌），自托管可选择性配置令牌以限制写入。
 
 ## 选择部署方式
 
@@ -74,7 +74,7 @@ python scripts/migrate_cloud.py --apply
 | 环境变量 | 用途 |
 | :--- | :--- |
 | `LOTTOLAB_DATABASE_URL` | 必需，外部 PostgreSQL pooled 连接，启用 TLS |
-| `LOTTOLAB_ADMIN_TOKEN` | 必需，至少 32 字符的随机管理员令牌 |
+| `LOTTOLAB_ADMIN_TOKEN` | 可选：云端默认公开、忽略此项；如需私有部署再设为至少 32 字符随机串 |
 | `LOTTOLAB_JOB_TIMEOUT_SECONDS` | 可选，默认 240，允许 1–240 |
 | `LOTTOLAB_ALLOWED_HOSTS` | 可选，附加自定义域名，逗号分隔，不含协议、路径或端口 |
 | `LOTTOLAB_ALLOWED_ORIGINS` | 可选，附加完整 HTTPS 来源，通常无需设置 |
@@ -83,7 +83,7 @@ Vercel 系统环境变量用于自动识别默认部署域名，应保留自动�
 
 ### 4. 验证并使用
 
-部署完成后打开 Vercel 分配的 HTTPS 地址。先确认页面和 `/api/v1/health` 可用，再输入管理员令牌查看数据。
+部署完成后打开 Vercel 分配的 HTTPS 地址。先确认页面和 `/api/v1/health` 可用；云端默认公开，直接即可浏览数据（仅私有自托管才需输入管理员令牌）。
 
 在自己的新实例中完成一次小规模同步或 CSV 导入，再运行一次模拟；刷新、重新鉴权后确认数据与实验结果仍可读取。若从本地迁入历史数据，同时核对彩种、期数与历史实验。
 
@@ -124,7 +124,7 @@ python scripts/vercel_cli.py deploy --target preview
 | CSV 大小 | 8 MiB | 4 MiB |
 | CSV 行数 | 10,000 | 10,000 |
 | 原始快照 | 文件系统 | 压缩存入 PostgreSQL |
-| 数据访问 | 默认可读，写入规则由配置决定 | 业务读写均需管理员令牌 |
+| 数据访问 | 默认可读，写入规则由配置决定 | 默认公开读写（无令牌）；如需私有再配令牌 |
 
 云端无需常驻 worker。浏览器连接或函数运行被中断时，任务可能失败；重新鉴权后查看历史状态，不要假定断开的请求仍会完成。空闲数据库或函数唤醒可能增加首次响应时间。
 
