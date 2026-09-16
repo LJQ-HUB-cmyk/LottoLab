@@ -66,6 +66,25 @@ interface VerifyResult {
   rounds: VerifyRound[]
   total: { won: number; amount: number; amount_unknown: number }
 }
+interface ReviewRow {
+  id: string
+  kind: string
+  target_issue: string
+  strategy: string
+  checked: boolean
+  hit_main: number | null
+  prize: string | null
+}
+interface ReviewSummary {
+  kind: string
+  logged: number
+  checked: number
+  avg_hit_main: number | null
+  expected_hit: number
+  won_count: number
+  note: string
+  rows: ReviewRow[]
+}
 interface BacktestStrategy {
   name: string
   mean_hits: number
@@ -114,6 +133,12 @@ export function OnlinePage() {
   const [bt, setBt] = useState<BacktestResult | null>(null)
   const [btErr, setBtErr] = useState('')
   const [btLoading, setBtLoading] = useState(false)
+
+  const [predIssue, setPredIssue] = useState('')
+  const [review, setReview] = useState<ReviewSummary | null>(null)
+  const [predMsg, setPredMsg] = useState('')
+  const [predErr, setPredErr] = useState('')
+  const [reviewLoading, setReviewLoading] = useState(false)
 
   async function calcBet() {
     setBetErr('')
@@ -170,6 +195,37 @@ export function OnlinePage() {
       setBtErr(e instanceof Error ? e.message : '回测失败')
     } finally {
       setBtLoading(false)
+    }
+  }
+
+  async function logPrediction() {
+    setPredErr('')
+    setPredMsg('')
+    const picks = (recommend.data?.picks || []).map((p) => ({ strategy: p.name, main: p.main, aux: p.aux }))
+    if (!predIssue.trim() || !picks.length) {
+      setPredErr('请填写目标期号，且当前有可记录的推荐')
+      return
+    }
+    try {
+      const r = await api<{ logged: number }>('/predictions', {
+        method: 'POST',
+        body: JSON.stringify({ kind: lottery, target_issue: predIssue.trim(), seed, picks }),
+      })
+      setPredMsg(`已记录 ${r.logged} 注到台账，等待 ${predIssue} 期开奖后自动对账`)
+    } catch (e) {
+      setPredErr(e instanceof Error ? e.message : '记录失败')
+    }
+  }
+
+  async function loadReview() {
+    setPredErr('')
+    setReviewLoading(true)
+    try {
+      setReview(await api<ReviewSummary>(`/predictions/review?kind=${lottery}`))
+    } catch (e) {
+      setPredErr(e instanceof Error ? e.message : '复盘加载失败')
+    } finally {
+      setReviewLoading(false)
     }
   }
 
@@ -372,6 +428,53 @@ export function OnlinePage() {
             {bet.formula} → <strong>{bet.bets}</strong> 注 · <strong>¥{bet.amount}</strong>
             <span className="muted"> （{bet.note}）</span>
           </p>
+        )}
+      </article>
+
+      <article className="card">
+        <div className="card-head">
+          <h2>预测复盘</h2>
+        </div>
+        <p className="muted">
+          把当前推荐登记到台账，等该期开奖后自动对账命中率——用真实结果自证预测准不准（预期≈随机）。
+        </p>
+        <div className="inline-actions">
+          <label className="muted">
+            目标期号
+            <input
+              value={predIssue}
+              onChange={(e) => setPredIssue(e.target.value)}
+              placeholder="如 2026107"
+            />
+          </label>
+          <button className="button" onClick={() => void logPrediction()}>
+            记录当前推荐到台账
+          </button>
+          <button className="button button-quiet" onClick={() => void loadReview()} disabled={reviewLoading}>
+            {reviewLoading ? '加载中…' : '查看复盘对账'}
+          </button>
+        </div>
+        <ErrorNote message={predErr} />
+        {predMsg && <p className="muted">{predMsg}</p>}
+        {review && (
+          <div>
+            <p className="muted" style={{ marginTop: 6 }}>
+              台账 {review.logged} 条 · 已对账 {review.checked} 条 · 平均命中{' '}
+              <strong>{review.avg_hit_main ?? '—'}</strong>（随机期望 {review.expected_hit}）· 中奖{' '}
+              {review.won_count} 次
+            </p>
+            <p className="muted" style={{ fontSize: 12 }}>
+              {review.note}
+            </p>
+            {review.rows.slice(0, 12).map((r) => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                <span className="muted">
+                  {r.target_issue} · {r.strategy}
+                </span>
+                <span>{r.checked ? `中${r.hit_main ?? 0}${r.prize ? ' · ' + r.prize : ''}` : '待开奖'}</span>
+              </div>
+            ))}
+          </div>
         )}
       </article>
 

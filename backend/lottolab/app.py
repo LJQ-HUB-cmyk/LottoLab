@@ -29,6 +29,7 @@ from .db import Draw, IngestionRun, Job, QualityIssue, make_engine, make_session
 from .domain import DISCLAIMER, RULES, DatasetKind, DrawInput, Lottery
 from .ingestion import digest, freeze_dataset, ingest_records, load_draws, parse_csv
 from .predict import backtest_strategies, recommend, recommend_multi
+from .review import log_predictions, reconcile, review_summary
 from .schemas import (
     BacktestRequest,
     CoverRequest,
@@ -397,6 +398,26 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
         if not rows:
             raise HTTPException(404, f"{kind} 暂无可用开奖数据")
         return backtest_strategies(kind, rows, window)
+
+    @app.post("/api/v1/predictions")
+    def log_predictions_ep(payload: dict, db: DB):
+        kind = str(payload.get("kind", ""))
+        if kind not in ONLINE_KINDS:
+            raise HTTPException(400, "未知彩种")
+        target_issue = str(payload.get("target_issue", "")).strip()
+        picks = payload.get("picks") or []
+        if not target_issue or not picks:
+            raise HTTPException(422, "需要 target_issue 与 picks")
+        seed = int(payload.get("seed", 1) or 1)
+        n = log_predictions(db, kind, target_issue, picks, seed)
+        return {"logged": n, "kind": kind, "target_issue": target_issue}
+
+    @app.get("/api/v1/predictions/review")
+    def review_predictions_ep(db: DB, kind: str = "ssq"):
+        if kind not in ONLINE_KINDS:
+            raise HTTPException(400, "未知彩种")
+        reconcile(db, kind)
+        return review_summary(db, kind)
 
     @app.get("/api/v1/ingestions")
     def ingestions(db: DB, lottery: Lottery = "ssq", dataset_kind: DatasetKind = "real"):

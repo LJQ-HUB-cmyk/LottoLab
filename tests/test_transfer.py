@@ -71,6 +71,7 @@ def test_transfer_preserves_audit_results_ids_and_snapshots_without_source_write
             "jobs": 2,
             "dataset_versions": 1,
             "raw_snapshots": 2,
+            "prediction_logs": 0,
         }
         with session_factory() as db:
             assert db.scalar(select(func.count()).select_from(RawSnapshot)) == 0
