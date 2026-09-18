@@ -94,6 +94,22 @@ test('statistics use saved results and adjusted p-values', async ({ page }) => {
   await expect(page.getByText(/预设检验族 150 项/)).toBeVisible()
 })
 
+test('online verify checks tickets against draws', async ({ page, request }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await demo(page, 'online')
+  const draws = await request.get('/api/v1/draws?lottery=ssq&dataset_kind=synthetic&limit=1')
+  expect(draws.ok()).toBeTruthy()
+  const first = (await draws.json()).items[0]
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ticket = `${first.main_numbers.map(pad).join(' ')} + ${first.special_numbers.map(pad).join(' ')}`
+  await page.getByLabel(/票面/).fill(ticket)
+  await page.getByLabel(/期号/).fill(first.issue)
+  await page.getByRole('button', { name: '验奖', exact: true }).click()
+  await expect(page.getByText(/命中 1 注/)).toBeVisible()
+  expect(errors).toEqual([])
+})
+
 test('mobile layout, navigation, dark theme and API failure recovery', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await demo(page)

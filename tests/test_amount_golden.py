@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from lottolab.calc import KL8, digit3_prize, kl8_prize
+from lottolab.domain import DLT_FIXED_NEW, DLT_FIXED_OLD
 from lottolab.verify import SSQ_FIXED
 
 AMOUNTS = json.loads((Path(__file__).parent / "fixtures" / "prize_golden.json").read_text(encoding="utf-8"))[
@@ -27,6 +28,15 @@ def test_ssq_fixed_amounts_match_and_float_excluded():
     assert SSQ_FIXED == golden
     for tier in AMOUNTS["ssq_float_tiers"]:  # 一二等浮动 → 不在固定表
         assert int(tier) not in SSQ_FIXED
+
+
+def test_dlt_fixed_amounts_match_era_tables_and_float_excluded():
+    assert DLT_FIXED_NEW == {k: v for k, v in AMOUNTS["dlt_fixed_new"].items()}
+    assert DLT_FIXED_OLD == {k: v for k, v in AMOUNTS["dlt_fixed_old"].items()}
+    for tier in AMOUNTS["dlt_float_tiers_new"]:
+        assert tier not in DLT_FIXED_NEW
+    for tier in AMOUNTS["dlt_float_tiers_old"]:
+        assert tier not in DLT_FIXED_OLD
 
 
 def test_digit3_amounts_match_official():

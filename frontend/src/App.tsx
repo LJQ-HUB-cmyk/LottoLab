@@ -300,8 +300,10 @@ export function App() {
                 {researchUnsupported ? (
                   <div className="notice">
                     {LOTTERY_NAME[lottery]}{' '}
-                    属数字型/小彩种，科研模块（统计检验/回测/模型/覆盖）当前针对双色球与大乐透；
-                    该彩种请使用「在线工具」（推荐 / 注数 / 验奖）。
+                    {route === 'covering'
+                      ? '组合覆盖仅支持双色球 / 大乐透 / 七乐彩'
+                      : '模型档案、滚动回测与随机模拟仅支持池型玩法（双色球 / 大乐透 / 七乐彩 / 快乐8）'}
+                    ；该彩种请使用「在线工具」（推荐 / 注数 / 验奖）或「统计检验」（逐位频率与均匀性检验）。
                   </div>
                 ) : (
                   <CurrentPage key={`${route}-${lottery}-${datasetKind}`} />

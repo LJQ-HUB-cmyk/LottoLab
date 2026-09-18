@@ -110,6 +110,32 @@ def coldness(kind: str, main: list[int], aux: list[int]) -> dict[str, Any]:
     }
 
 
+def build_fit_rows(
+    draws: list[dict[str, Any]], placebo: dict[str, int], placebo_col: str = "n2"
+) -> list[dict[str, Any]]:
+    """组装拟合行：库内一等奖注数/销量 + 外配安慰剂注数，三者缺一即丢行。
+
+    安慰剂须是与待验特征无关奖级的真实注数（如双色球二等奖注数），库内没有该列，
+    必须另备 CSV（见 scripts/fit_coldness.py），不以金额或销量代替。
+    """
+    rows = []
+    for d in draws:
+        prizes = d.get("prizes") or {}
+        n1, issue = prizes.get("winner_count_1"), str(d.get("issue", ""))
+        if n1 is None or issue not in placebo:
+            continue
+        rows.append(
+            {
+                "main_numbers": d.get("main_numbers", []),
+                "special_numbers": d.get("special_numbers") or [],
+                placebo_col: placebo[issue],
+                "winner_count_1": n1,
+                "sales": d.get("sales"),
+            }
+        )
+    return rows
+
+
 def _ols_coefs(design: np.ndarray, target: np.ndarray) -> np.ndarray:
     """最小二乘系数；design 首列为截距。"""
     coefs, *_ = np.linalg.lstsq(design, target, rcond=None)

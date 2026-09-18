@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     public_mode: bool = False
     max_active_jobs: int = Field(default=8, ge=1, le=8)
     max_csv_bytes: int = Field(default=8 * 1024 * 1024, ge=1024, le=8 * 1024 * 1024)
+    rate_limit_posts_per_minute: int = Field(default=120, ge=0, le=6000)
 
     @property
     def origins(self) -> list[str]:

@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_limits
 
 from .analysis import adjust_pvalues
-from .domain import Rule, ssq_prize_tier
+from .domain import Rule, dlt_fixed_amount, dlt_prize_tier_for, ssq_prize_tier
 from .features import FEATURE_NAMES, FEATURE_VERSION, causal_features, choose_top, coherent_marginals
 from .provenance import code_fingerprint
 from .schemas import BacktestRequest
@@ -63,6 +63,34 @@ def binary_metrics(probabilities, labels):
     return float(np.mean((p - labels) ** 2)), float(
         -np.mean(labels * np.log(p) + (1 - labels) * np.log1p(-p))
     )
+
+
+def settle_reward(
+    rule_code: str, dataset_kind: str, actual: dict, main_hits: int, special_hits: int
+) -> tuple[Decimal | None, bool]:
+    """单注单期结算 → (金额或 None, 是否已结算)。
+
+    SSQ/DLT 真实数据：当期奖金表优先；DLT 固定奖级按规则版本常量回退；
+    未中按 0 结算；浮动奖无当期数据则未结算（不猜）。口径均为基本投注、税前。
+    """
+    if dataset_kind != "real" or rule_code not in ("ssq", "dlt"):
+        return None, False
+    if rule_code == "ssq":
+        tier = ssq_prize_tier(main_hits, special_hits)
+    else:
+        tier = dlt_prize_tier_for(actual.get("draw_date") or actual.get("date"), main_hits, special_hits)
+    if not tier:
+        return Decimal(0), True
+    payout = (actual.get("prizes") or {}).get(tier)
+    if payout is not None and Decimal(str(payout)) > 0:
+        return Decimal(str(payout)), True
+    if payout is not None:
+        return None, False
+    if rule_code == "dlt":
+        fixed = dlt_fixed_amount(tier, actual.get("draw_date") or actual.get("date"))
+        if fixed is not None:
+            return Decimal(fixed), True
+    return None, False
 
 
 def block_comparison(differences: np.ndarray, seed: int, samples: int) -> dict:
@@ -175,15 +203,11 @@ def run_backtest(
                     special_ticket = []
                     special_hits = 0
                     special_brier, special_loss = 0.0, 0.0
-                reward = None
-                if rule.code == "ssq" and config.dataset_kind == "real":
-                    tier = ssq_prize_tier(main_hits, special_hits)
-                    payout = actual.get("prizes", {}).get(tier) if tier else "0"
-                    if payout is not None and (not tier or Decimal(str(payout)) > 0):
-                        reward = Decimal(str(payout))
-                        gross += reward
-                    else:
-                        missing_settlements += 1
+                reward, settled = settle_reward(
+                    rule.code, config.dataset_kind, actual, main_hits, special_hits
+                )
+                if settled:
+                    gross += reward or Decimal(0)
                 else:
                     missing_settlements += 1
                 records.append(
@@ -289,7 +313,8 @@ def run_backtest(
             "95% 区间是名义区间，块 bootstrap 依赖局部平稳近似，不代表未来保证。",
             "超参数固定；没有使用测试区间调参，重复尝试不同配置仍需跨实验校正。",
             "基数一致性投影不是样本外概率校准的证明；校准图仅用于检验。",
-            "收益只按 SSQ 历史每注奖金税前结算，不重算新增投注对分奖的影响；缺失派奖或演示数据不输出 ROI。",
-            "DLT 奖金规则有历史版本差异，当前版本不对 DLT 输出收益指标。",
+            "收益只按 SSQ/DLT 历史奖金税前结算（基本投注口径，不含追加与派奖，不重算新增投注对分奖的影响）："
+            "当期奖金表优先，DLT 固定奖按规则版本常量回退（2019-02-20 第19019期为界），"
+            "浮动奖缺数则该期不计入；缺失派奖或演示数据不输出 ROI。",
         ],
     }

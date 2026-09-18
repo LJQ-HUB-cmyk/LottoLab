@@ -31,6 +31,10 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           RECENT: ${{ github.event.inputs.recent || '40' }}
         run: python collector/daily_sync.py
+      - name: Snapshot review predictions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/snapshot_review.py --kinds ssq,dlt
       - name: Failure notice hook
         if: failure()
         run: echo "::warning::每日开奖同步失败，请检查 17500 源可达性与 DATABASE_URL"
