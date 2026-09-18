@@ -104,7 +104,7 @@ test('online verify checks tickets against draws', async ({ page, request }) => 
   const pad = (n: number) => String(n).padStart(2, '0')
   const ticket = `${first.main_numbers.map(pad).join(' ')} + ${first.special_numbers.map(pad).join(' ')}`
   await page.getByLabel(/票面/).fill(ticket)
-  await page.getByLabel(/期号/).fill(first.issue)
+  await page.getByLabel('期号（逗号分隔）', { exact: true }).fill(first.issue)
   await page.getByRole('button', { name: '验奖', exact: true }).click()
   await expect(page.getByText(/命中 1 注/)).toBeVisible()
   expect(errors).toEqual([])
