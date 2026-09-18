@@ -2,7 +2,7 @@
 
 import random
 
-from lottolab.coldness import _features, fit_coldness
+from lottolab.coldness import _features, build_fit_rows, fit_coldness
 
 
 def make_rows(seed=7, count=1200, effects=None, placebo_effects=None, flip_at=None):
@@ -80,3 +80,31 @@ def test_fit_drops_sign_flipped_feature():
     result = fit_coldness("ssq", make_rows(effects={"blueHot": 1.3}, flip_at=840))
     assert "blueHot" in result["dropped"]
     assert "blueHot" not in result.get("multipliers", {})
+
+
+def test_build_fit_rows_requires_all_three_columns():
+    draws = [
+        {
+            "issue": "2026101",
+            "main_numbers": [1, 2, 3, 4, 5, 6],
+            "special_numbers": [7],
+            "sales": "300000000.00",
+            "prizes": {"winner_count_1": "5"},
+        },
+        {
+            "issue": "2026102",  # 无安慰剂 → 丢行
+            "main_numbers": [1, 2, 3, 4, 5, 6],
+            "special_numbers": [7],
+            "sales": "300000000.00",
+            "prizes": {"winner_count_1": "5"},
+        },
+        {
+            "issue": "2026103",  # 无一等奖注数 → 丢行
+            "main_numbers": [1, 2, 3, 4, 5, 6],
+            "special_numbers": [7],
+            "sales": "300000000.00",
+            "prizes": {},
+        },
+    ]
+    rows = build_fit_rows(draws, {"2026101": 100, "2026103": 100})
+    assert len(rows) == 1 and rows[0]["n2"] == 100 and rows[0]["winner_count_1"] == "5"

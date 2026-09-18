@@ -326,6 +326,42 @@ def _aux_of(kind: str, row: dict[str, Any]) -> list[int]:
     return [int(x) for x in val]
 
 
+def online_rows(kind: str, draws: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """公开开奖记录 → 在线引擎行（含销量与一等奖注数，供人气回归与冷门度使用）。
+
+    唯一事实源：app 的推荐/验奖/回测与离线复盘快照共用，避免两份转换漂移。
+    """
+    out: list[dict[str, Any]] = []
+    for r in draws:
+        main = r["main_numbers"]
+        spc = r["special_numbers"] or []
+        base: dict[str, Any] = {"code": r["issue"], "date": str(r["draw_date"])}
+        if kind == "ssq":
+            base.update(red=main, blue=(spc[0] if spc else 0))
+        elif kind == "dlt":
+            base.update(front=main, back=spc)
+        elif kind == "qlc":
+            base.update(main=main, special=(spc[0] if spc else 0))
+        elif kind == "kl8":
+            base.update(nums=main)
+        else:
+            base.update(digits=main)
+        prizes = r.get("prizes") or {}
+        wc = prizes.get("winner_count_1")
+        if wc is not None:
+            try:
+                base["winners"] = int(wc)
+            except (TypeError, ValueError):
+                pass
+        if r.get("sales"):
+            try:
+                base["sales"] = float(r["sales"])
+            except (TypeError, ValueError):
+                pass
+        out.append(base)
+    return out
+
+
 def _rank_pick(rng: random.Random, ordered: list[int], k: int) -> list[int]:
     """从已排序候选里取前 k，用 seeded 抖动做同分稳定但可变的破平局。"""
     keyed = [(i, rng.random(), v) for i, v in enumerate(ordered)]

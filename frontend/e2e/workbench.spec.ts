@@ -94,6 +94,26 @@ test('statistics use saved results and adjusted p-values', async ({ page }) => {
   await expect(page.getByText(/预设检验族 150 项/)).toBeVisible()
 })
 
+test('online verify checks tickets against draws', async ({ page, request }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const csv = 'issue,draw_date,main_numbers,special_numbers\n2026101,2026-01-04,01 02 03 04 05 06,07\n'
+  const imported = await request.post('/api/v1/imports/csv', {
+    multipart: {
+      file: { name: 'verify.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) },
+      lottery: 'ssq',
+      dataset_kind: 'real',
+    },
+  })
+  expect(imported.ok()).toBeTruthy()
+  await page.goto('/#/online')
+  await page.getByLabel(/票面/).fill('01 02 03 04 05 06 + 07')
+  await page.getByLabel('期号（逗号分隔）', { exact: true }).fill('2026101')
+  await page.getByRole('button', { name: '验奖', exact: true }).click()
+  await expect(page.getByText(/命中 1 注/)).toBeVisible()
+  expect(errors).toEqual([])
+})
+
 test('mobile layout, navigation, dark theme and API failure recovery', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await demo(page)

@@ -35,6 +35,17 @@ def test_score_dlt_amount_none():
     assert r["tier"] == "1" and r["grade"] == "一等奖" and r["amount"] is None
 
 
+def test_score_dlt_fixed_amount_follows_rule_era():
+    new = {"front": [1, 6, 14, 15, 26], "back": [8, 9], "date": "2026-09-16"}
+    hit3 = score_ticket("dlt", parse_ticket("dlt", "01 06 14 15 26 + 01 02"), new)
+    assert hit3["tier"] == "3" and hit3["amount"] == 10000  # 新规则三等固定
+    old = {"front": [1, 6, 14, 15, 26], "back": [8, 9], "date": "2018-01-01"}
+    old42 = score_ticket("dlt", parse_ticket("dlt", "01 06 14 15 07 + 08 09"), old)
+    assert old42["tier"] == "3" and old42["amount"] is None  # 旧规则三等浮动
+    old41 = score_ticket("dlt", parse_ticket("dlt", "01 06 14 15 07 + 08 01"), old)
+    assert old41["tier"] == "4" and old41["amount"] == 200  # 旧规则四等固定
+
+
 def test_score_kl8():
     draw = {"nums": list(range(1, 21))}
     t = parse_ticket("kl8", "03 08 10 16 18 20 23 29 31 35")

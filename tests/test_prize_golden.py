@@ -7,7 +7,7 @@
 import json
 from pathlib import Path
 
-from lottolab.domain import dlt_prize_tier, qlc_prize_tier, ssq_prize_tier
+from lottolab.domain import dlt_prize_tier, dlt_prize_tier_for, qlc_prize_tier, ssq_prize_tier
 
 GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "prize_golden.json").read_text(encoding="utf-8"))
 
@@ -45,5 +45,22 @@ def test_golden_covers_every_prize_tier():
         assert tier in GOLDEN["ssq"].values(), f"ssq 缺少奖级 {tier} 的用例"
     for tier in ("1", "2", "3", "4", "5", "6", "7", "8", "9"):
         assert tier in GOLDEN["dlt"].values(), f"dlt 缺少奖级 {tier} 的用例"
+    for tier in ("1", "2", "3", "4", "5", "6"):
+        assert tier in GOLDEN["dlt_old"].values(), f"dlt_old 缺少奖级 {tier} 的用例"
     for tier in ("1", "2", "3", "4", "5", "6", "7"):
         assert tier in GOLDEN["qlc"].values(), f"qlc 缺少奖级 {tier} 的用例"
+
+
+def test_dlt_old_matches_historical_tiers():
+    for main in range(6):
+        for special in range(3):
+            assert dlt_prize_tier_for("2018-06-01", main, special) == _tier_or_none(
+                GOLDEN["dlt_old"], main, special
+            ), f"dlt_old ({main},{special})"
+
+
+def test_dlt_rule_cutover_selects_era():
+    assert dlt_prize_tier_for("2019-02-19", 4, 2) == "3"  # 旧规则：4+2 为三等
+    assert dlt_prize_tier_for("2019-02-20", 4, 2) == "4"  # 19019期起新规则
+    assert dlt_prize_tier_for("", 4, 2) == "4"  # 日期缺失沿用现行
+    assert dlt_prize_tier_for(None, 4, 2) == "4"

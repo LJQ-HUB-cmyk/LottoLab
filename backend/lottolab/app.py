@@ -28,7 +28,8 @@ from .config import Settings, get_settings
 from .db import Draw, IngestionRun, Job, QualityIssue, make_engine, make_session_factory, now
 from .domain import DISCLAIMER, RULES, DatasetKind, DrawInput, Lottery
 from .ingestion import digest, freeze_dataset, ingest_records, load_draws, parse_csv
-from .predict import backtest_strategies, recommend, recommend_multi
+from .predict import backtest_strategies, online_rows, recommend, recommend_multi
+from .ratelimit import PostRateLimiter, client_ip
 from .review import log_predictions, reconcile, review_summary
 from .schemas import (
     BacktestRequest,
@@ -77,6 +78,7 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
     factory = session_factory or make_session_factory(engine)
     resolution_lock = Lock()
     enqueue_lock = Lock()
+    limiter = PostRateLimiter(settings.rate_limit_posts_per_minute)
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -119,6 +121,13 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
         return JSONResponse(
             status_code=503, content={"detail": "数据库暂时不可用，请检查连接和迁移状态后重试"}
         )
+
+    @app.middleware("http")
+    async def post_rate_limit(request: Request, call_next):
+        if request.method == "POST" and request.url.path.startswith("/api/"):
+            if not limiter.allowed(client_ip(request)):
+                return JSONResponse(status_code=429, content={"detail": "请求过于频繁，请稍后再试"})
+        return await call_next(request)
 
     @app.middleware("http")
     async def response_headers(request: Request, call_next):
@@ -321,35 +330,7 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
         ]
 
     def _as_online(kind: str, rows: list[dict]) -> list[dict]:
-        out = []
-        for r in rows:
-            main = r["main_numbers"]
-            spc = r["special_numbers"] or []
-            base: dict = {"code": r["issue"], "date": str(r["draw_date"])}
-            if kind == "ssq":
-                base.update(red=main, blue=(spc[0] if spc else 0))
-            elif kind == "dlt":
-                base.update(front=main, back=spc)
-            elif kind == "qlc":
-                base.update(main=main, special=(spc[0] if spc else 0))
-            elif kind == "kl8":
-                base.update(nums=main)
-            else:
-                base.update(digits=main)
-            prizes = r.get("prizes") or {}
-            wc = prizes.get("winner_count_1")
-            if wc is not None:
-                try:
-                    base["winners"] = int(wc)
-                except (TypeError, ValueError):
-                    pass
-            if r.get("sales"):
-                try:
-                    base["sales"] = float(r["sales"])
-                except (TypeError, ValueError):
-                    pass
-            out.append(base)
-        return out
+        return online_rows(kind, rows)
 
     @app.get("/api/v1/bet")
     def bet(kind: str, p: str = "{}"):

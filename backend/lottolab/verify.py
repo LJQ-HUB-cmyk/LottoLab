@@ -1,7 +1,8 @@
 """验奖引擎：把一注票解析并对照某期开奖，给出奖级/命中/金额（自 lottery-web verify-batch.js 迁入 trunk）。
 
-单一判定：奖级 tier 全部复用 domain.ssq/dlt/qlc_prize_tier；固定奖金复用同侧常量，与 prize_golden.json 一致。
-金额纪律沿用 lottery-web：只给有把握的固定奖（ssq 三~六等），浮动/换规则/未校验一律 None，绝不猜。
+单一判定：奖级 tier 全部复用 domain.ssq/dlt/qlc_prize_tier（大乐透按开奖日期选择规则版本）；
+固定奖金复用同侧常量，与 prize_golden.json 一致。
+金额纪律沿用 lottery-web：只给有把握的固定奖（ssq 三~六等，dlt 按版本固定奖），浮动/未校验一律 None，绝不猜。
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import re
 from typing import Any
 
 from lottolab.calc import digit3_prize, kl8_prize
-from lottolab.domain import dlt_prize_tier, qlc_prize_tier, ssq_prize_tier
+from lottolab.domain import dlt_fixed_amount, dlt_prize_tier_for, qlc_prize_tier, ssq_prize_tier
 
 # 主/辅区规格：POOL=(主区数, 上限) / DIGIT=(位数, 每位上限)。qxc 第 7 位另限 0..14。
 SPEC: dict[str, dict[str, Any]] = {
@@ -107,14 +108,16 @@ def score_ticket(kind: str, ticket: dict[str, Any], draw: dict[str, Any]) -> dic
         back = {f"{int(x):02d}" for x in draw["back"]}
         hm = sum(1 for x in main if x in front)
         ha = sum(1 for x in ticket["aux"] if x in back)
-        tier = dlt_prize_tier(hm, ha)
+        day = str(draw.get("date", ""))
+        tier = dlt_prize_tier_for(day, hm, ha)
+        amount = dlt_fixed_amount(tier, day)
         return {
             "hit_main": hm,
             "hit_aux": ha,
             "tier": tier,
             "grade": "未中" if tier is None else GRADE_CN[int(tier)],
-            "amount": None,
-            "note": "大乐透固定奖金额随规则版本变化，只给奖级",
+            "amount": amount if tier else 0,
+            "note": None if (not tier or amount) else "浮动奖金额以官方公告为准",
         }
     if kind == "qlc":
         base = {f"{int(x):02d}" for x in draw["main"]}

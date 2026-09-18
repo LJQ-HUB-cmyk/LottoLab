@@ -142,6 +142,7 @@ def ssq_prize_tier(main_hits: int, special_hits: int) -> str | None:
 
 
 def dlt_prize_tier(main_hits: int, special_hits: int) -> str | None:
+    """现行规则（2019-02-20 第19019期起）：9 个奖级。旧规则见 dlt_prize_tier_old。"""
     return {
         (5, 2): "1",
         (5, 1): "2",
@@ -157,6 +158,58 @@ def dlt_prize_tier(main_hits: int, special_hits: int) -> str | None:
         (1, 2): "9",
         (0, 2): "9",
     }.get((main_hits, special_hits))
+
+
+# 大乐透规则版本分界：2019-02-20 第19019期起新规则（6 奖级→9 奖级，中奖条件不变）。
+DLT_RULE_CUTOVER = date(2019, 2, 20)
+
+
+def dlt_prize_tier_old(main_hits: int, special_hits: int) -> str | None:
+    """旧规则（2007 上市→2019-02-18）：6 个奖级，一二三等为浮动奖。"""
+    return {
+        (5, 2): "1",
+        (5, 1): "2",
+        (5, 0): "3",
+        (4, 2): "3",
+        (4, 1): "4",
+        (3, 2): "4",
+        (4, 0): "5",
+        (3, 1): "5",
+        (2, 2): "5",
+        (3, 0): "6",
+        (2, 1): "6",
+        (1, 2): "6",
+        (0, 2): "6",
+    }.get((main_hits, special_hits))
+
+
+def dlt_prize_tier_for(draw_date: str | date | None, main_hits: int, special_hits: int) -> str | None:
+    """按开奖日期选择奖级映射；日期缺失或非法时沿用现行规则（保持旧行为）。"""
+    day = None
+    try:
+        day = draw_date if isinstance(draw_date, date) else date.fromisoformat(str(draw_date)[:10])
+    except (TypeError, ValueError):
+        day = None
+    if day is not None and day < DLT_RULE_CUTOVER:
+        return dlt_prize_tier_old(main_hits, special_hits)
+    return dlt_prize_tier(main_hits, special_hits)
+
+
+# 大乐透固定奖官方值（基本投注，税前；追加/派奖/特别规定另计，不在此表）。
+DLT_FIXED_NEW = {"3": 10000, "4": 3000, "5": 300, "6": 200, "7": 100, "8": 15, "9": 5}
+DLT_FIXED_OLD = {"4": 200, "5": 10, "6": 5}
+
+
+def dlt_fixed_amount(tier: str | None, draw_date: str | date | None) -> int | None:
+    """固定奖级按规则版本取官方值；浮动奖/未中返回 None（须当期实际奖金）。"""
+    if not tier:
+        return None
+    try:
+        day = draw_date if isinstance(draw_date, date) else date.fromisoformat(str(draw_date)[:10])
+    except (TypeError, ValueError):
+        day = None
+    table = DLT_FIXED_OLD if day is not None and day < DLT_RULE_CUTOVER else DLT_FIXED_NEW
+    return table.get(tier)
 
 
 def qlc_prize_tier(main_hits: int, special_hits: int) -> str | None:

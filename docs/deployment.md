@@ -125,6 +125,7 @@ python scripts/vercel_cli.py deploy --target preview
 | CSV 行数 | 10,000 | 10,000 |
 | 原始快照 | 文件系统 | 压缩存入 PostgreSQL |
 | 数据访问 | 默认可读，写入规则由配置决定 | 未设令牌时公开读写；设令牌后公开读、私有写（验奖用GET免令牌） |
+| 写请求限流 | POST /api/* 默认 120 次/分/IP（`LOTTOLAB_RATE_LIMIT_POSTS_PER_MINUTE`，0 关闭） | 同左 |
 
 云端无需常驻 worker。浏览器连接或函数运行被中断时，任务可能失败；重新鉴权后查看历史状态，不要假定断开的请求仍会完成。空闲数据库或函数唤醒可能增加首次响应时间。
 
