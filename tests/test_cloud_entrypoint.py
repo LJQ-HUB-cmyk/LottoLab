@@ -32,7 +32,8 @@ from fastapi.testclient import TestClient
 with TestClient(module.app, base_url='https://preview.example') as client:
     assert client.get('/').text == '<h1>Isolated LottoLab</h1>'
     assert client.get('/api/v1/rules').status_code == 200
-    assert module.app.state.settings.public_mode is True
+    assert module.app.state.settings.public_mode is False
+    assert module.app.state.settings.admin_token == 'isolated-entrypoint-test-token-32-characters'
     assert module.app.state.settings.require_read_auth is False
     assert module.app.state.settings.execution_mode == 'request'
 print('isolated deployment startup PASS')

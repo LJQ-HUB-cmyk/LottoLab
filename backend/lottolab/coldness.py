@@ -110,37 +110,119 @@ def coldness(kind: str, main: list[int], aux: list[int]) -> dict[str, Any]:
     }
 
 
-def fit_coldness(kind: str, rows: list[dict[str, Any]], placebo_col: str = "n2") -> dict[str, Any]:
-    """从真实一等奖注数拟合各特征乘子（对 log1p(n1) 关于销量归一后回归），带安慰剂闸门。
+def _ols_coefs(design: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """最小二乘系数；design 首列为截距。"""
+    coefs, *_ = np.linalg.lstsq(design, target, rcond=None)
+    return np.asarray(coefs, dtype=float)
 
-    rows: 每行含 main_numbers/aux、winner_count_1(n1)、可选 placebo 奖级注数、sales。
-    安慰剂：把特征回归到与其特征无关的奖级(如 ssq 二等奖只看红、不看蓝 → blueHot 打在二等奖应≈1)；
-    若安慰剂显著偏离 1，判为混淆，拒绝（返回 ok=False）。
+
+def fit_coldness(
+    kind: str,
+    rows: list[dict[str, Any]],
+    placebo_col: str = "n2",
+    train_ratio: float = 0.7,
+    placebo_tol: float = 0.05,
+) -> dict[str, Any]:
+    """从真实一等奖注数拟合各特征乘子，带样本外验证与安慰剂闸门。
+
+    模型：log1p(n1) = a + b·log(sales) + Σ cⱼ·featⱼ，销量做协变量进入回归。
+    按列表顺序（应为时间升序）前 train_ratio 拟合、后段验证：保留特征需乘子
+    在 1 的同侧（符号一致），反号即该特征样本外不成立。
+    安慰剂：同一设计矩阵打在 placebo_col 奖级注数上，任一保留特征
+    |log 乘子| > placebo_tol 即判混淆，整轮拒绝（ok=False，fail-closed）。
+    rows 每行需含 main_numbers / special_numbers / winner_count_1 / sales，
+    安慰剂列缺失同样拒绝，避免无对照放行。
     """
+
     feats = [f[0] for f in _feature_template(kind)]
-    x, y, yp = [], [], []  # 主目标 n1、安慰剂目标
+    vecs: list[list[int]] = []
+    goals: list[float] = []
+    placebos: list[float] = []
+    log_sales: list[float] = []
     for r in rows:
-        n1 = r.get("winner_count_1")
-        sales = r.get("sales")
-        if not n1 or not sales:
+        try:
+            n1 = r.get("winner_count_1")
+            sales = float(r.get("sales") or 0)
+            if n1 is None or sales <= 0:
+                continue
+            n1v = r.get(placebo_col)
+            if n1v is None:
+                return {"ok": False, "reason": f"缺少安慰剂对照列 {placebo_col}，拒绝无对照发布"}
+            main = [int(x) for x in r["main_numbers"]]
+            aux = [int(v) for v in (r.get("special_numbers") or [])]
+            f = _features(kind, main, aux)
+            vecs.append([f.get(k, 0) for k in feats])
+            goals.append(math.log1p(int(n1)))
+            placebos.append(math.log1p(int(n1v)))
+            log_sales.append(math.log(sales))
+        except (TypeError, ValueError, KeyError):
             continue
-        main = [int(x) for x in r["main_numbers"]]
-        aux = [int(v) for v in (r.get("special_numbers") or [])]
-        f = _features(kind, main, aux)
-        vec = [f.get(k, 0) for k in feats]
-        x.append(vec)
-        y.append(math.log1p(int(n1)) - math.log10(float(sales)) / 1e6 * 0)  # 销量很大，这里仅用 n1 强度
-        yp.append(math.log1p(int(r.get(placebo_col, n1))))
-    if len(y) < 200:
+    if len(vecs) < 200:
         return {"ok": False, "reason": "样本不足"}
-    X = np.asarray(x, dtype=float)
-    keep = [j for j in range(X.shape[1]) if X[:, j].sum() >= 30]
+    full = np.asarray(vecs, dtype=float)
+    keep = [j for j in range(full.shape[1]) if full[:, j].sum() >= 30]
     if not keep:
         return {"ok": False, "reason": "无足够覆盖的特征"}
-    Xs = X[:, keep]
-    coef = np.linalg.lstsq(Xs, np.asarray(y) - np.mean(y), rcond=None)[0]
-    multipliers = {feats[j]: round(float(math.exp(c)), 3) for j, c in zip(keep, coef, strict=True)}
-    return {"ok": True, "kind": kind, "multipliers": multipliers, "n": len(y)}
+    kept = [feats[j] for j in keep]
+
+    def design(part: np.ndarray, sales: np.ndarray) -> np.ndarray:
+        ones = np.ones((part.shape[0], 1))
+        return np.hstack([ones, sales.reshape(-1, 1), part[:, keep]])
+
+    X = full
+    S = np.asarray(log_sales, dtype=float)
+    Y = np.asarray(goals, dtype=float)
+    P = np.asarray(placebos, dtype=float)
+    cut = int(len(vecs) * train_ratio)
+    if len(vecs) - cut < 30:
+        return {"ok": False, "reason": "验证段不足 30 期"}
+    train_coef = _ols_coefs(design(X[:cut], S[:cut]), Y[:cut])[2:]
+    test_coef = _ols_coefs(design(X[cut:], S[cut:]), Y[cut:])[2:]
+    train_mult = [round(float(math.exp(c)), 3) for c in train_coef]
+    test_mult = [round(float(math.exp(c)), 3) for c in test_coef]
+
+    validated: dict[str, float] = {}
+    dropped: dict[str, str] = {}
+    for name, tr, te in zip(kept, train_mult, test_mult, strict=True):
+        if (tr - 1) * (te - 1) > 0:
+            validated[name] = tr
+        else:
+            dropped[name] = f"样本外反号（训练 {tr} / 验证 {te}），不发布"
+
+    full_coef = _ols_coefs(design(X, S), P)[2:]
+    worst = max((abs(float(c)), name) for c, name in zip(full_coef, kept, strict=True))
+    placebo_report = {"col": placebo_col, "max_abs_log_mult": round(worst[0], 4), "tol": placebo_tol}
+    if worst[0] > placebo_tol:
+        return {
+            "ok": False,
+            "reason": f"安慰剂 {placebo_col} 上 {worst[1]} 偏离 1（|log|={worst[0]:.3f}），判混淆",
+            "kind": kind,
+            "n": len(vecs),
+            "validated": validated,
+            "dropped": dropped,
+            "placebo": {**placebo_report, "pass": False},
+        }
+    if not validated:
+        return {
+            "ok": False,
+            "reason": "无通过样本外验证的特征",
+            "kind": kind,
+            "n": len(vecs),
+            "dropped": dropped,
+            "placebo": {**placebo_report, "pass": True},
+        }
+    return {
+        "ok": True,
+        "kind": kind,
+        "multipliers": validated,
+        "dropped": dropped,
+        "n": len(vecs),
+        "n_train": cut,
+        "n_test": len(vecs) - cut,
+        "train_multipliers": dict(zip(kept, train_mult, strict=True)),
+        "test_multipliers": dict(zip(kept, test_mult, strict=True)),
+        "placebo": {**placebo_report, "pass": True},
+    }
 
 
 def _feature_template(kind: str) -> list[tuple[str, str, float]]:

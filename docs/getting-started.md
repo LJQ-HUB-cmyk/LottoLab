@@ -15,8 +15,8 @@ LottoLab 可通过 Docker 运行完整服务，也可直接安装到本机。两
 先下载项目，并在仓库根目录执行后续命令：
 
 ```bash
-git clone https://github.com/LeilaoMi/lottery-design.git
-cd lottery-design
+git clone https://github.com/LeilaoMi/LottoLab.git
+cd LottoLab
 ```
 
 ## Docker Compose
