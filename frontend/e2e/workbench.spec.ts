@@ -97,14 +97,18 @@ test('statistics use saved results and adjusted p-values', async ({ page }) => {
 test('online verify checks tickets against draws', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await demo(page, 'online')
-  const draws = await request.get('/api/v1/draws?lottery=ssq&dataset_kind=synthetic&limit=1')
-  expect(draws.ok()).toBeTruthy()
-  const first = (await draws.json()).items[0]
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const ticket = `${first.main_numbers.map(pad).join(' ')} + ${first.special_numbers.map(pad).join(' ')}`
-  await page.getByLabel(/票面/).fill(ticket)
-  await page.getByLabel('期号（逗号分隔）', { exact: true }).fill(first.issue)
+  const csv = 'issue,draw_date,main_numbers,special_numbers\n2026101,2026-01-04,01 02 03 04 05 06,07\n'
+  const imported = await request.post('/api/v1/imports/csv', {
+    multipart: {
+      file: { name: 'verify.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) },
+      lottery: 'ssq',
+      dataset_kind: 'real',
+    },
+  })
+  expect(imported.ok()).toBeTruthy()
+  await page.goto('/#/online')
+  await page.getByLabel(/票面/).fill('01 02 03 04 05 06 + 07')
+  await page.getByLabel('期号（逗号分隔）', { exact: true }).fill('2026101')
   await page.getByRole('button', { name: '验奖', exact: true }).click()
   await expect(page.getByText(/命中 1 注/)).toBeVisible()
   expect(errors).toEqual([])
