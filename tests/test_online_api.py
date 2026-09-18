@@ -46,3 +46,11 @@ def test_online_endpoints(session_factory, tmp_path):
     assert ver.status_code == 200, ver.text
     assert ver.json()["total"]["won"] == 1
     assert client.post("/api/v1/verify", json={"kind": "ssq", "lines": [], "codes": []}).status_code == 422
+    get_ver = client.get(
+        "/api/v1/verify",
+        params={"kind": "ssq", "lines": "02 04 13 14 15 30 + 08", "codes": "2026105"},
+    )
+    assert get_ver.status_code == 200, get_ver.text
+    assert get_ver.json() == ver.json()
+    assert client.get("/api/v1/verify", params={"kind": "nope"}).status_code == 400
+    assert client.get("/api/v1/verify", params={"kind": "ssq"}).status_code == 422

@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/LeilaoMi/lottery-design/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/LeilaoMi/lottery-design/ci.yml?branch=main&amp;label=CI" alt="CI"></a>
-  <a href="https://github.com/LeilaoMi/lottery-design/releases"><img src="https://img.shields.io/github/v/release/LeilaoMi/lottery-design?color=286ca3&amp;label=release" alt="Latest release"></a>
+  <a href="https://github.com/LeilaoMi/LottoLab/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/LeilaoMi/LottoLab/ci.yml?branch=main&amp;label=CI" alt="CI"></a>
+  <a href="https://github.com/LeilaoMi/LottoLab/releases"><img src="https://img.shields.io/github/v/release/LeilaoMi/LottoLab?color=286ca3&amp;label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-627b94" alt="MIT License"></a>
 </p>
 
@@ -56,8 +56,8 @@
 使用 Docker Compose 启动完整服务。需要 **Git、Python 3.12、Docker 和 Compose v2**；前端依赖会在镜像内构建。
 
 ```bash
-git clone https://github.com/LeilaoMi/lottery-design.git
-cd lottery-design
+git clone https://github.com/LeilaoMi/LottoLab.git
+cd LottoLab
 python scripts/bootstrap_env.py
 docker compose up -d --build --wait
 ```

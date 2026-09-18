@@ -361,16 +361,28 @@ def create_app(settings: Settings | None = None, session_factory=None) -> FastAP
             raise HTTPException(422, "参数 p 须为 JSON") from None
         return calc_bet(kind, params)
 
+    def _verify(db: Session, kind: str, lines: list[str], codes: list[str]):
+        if kind not in ONLINE_KINDS:
+            raise HTTPException(400, "未知彩种")
+        lines = [line.strip() for line in (lines or []) if line.strip()]
+        codes = [code.strip() for code in (codes or []) if code.strip()]
+        if not lines or not codes:
+            raise HTTPException(422, "需要 lines 与 codes")
+        if len(lines) > 200 or len(codes) > 10:
+            raise HTTPException(422, "单次最多验 200 注×10 期")
+        return verify_batch(kind, _as_online(kind, _rows(db, kind)), lines, codes)
+
     @app.post("/api/v1/verify")
     def verify(db: DB, payload: dict):
         kind = str(payload.get("kind", ""))
-        if kind not in ONLINE_KINDS:
-            raise HTTPException(400, "未知彩种")
         lines = [str(x) for x in (payload.get("lines") or [])]
         codes = [str(c) for c in (payload.get("codes") or [])]
-        if not lines or not codes:
-            raise HTTPException(422, "需要 lines 与 codes")
-        return verify_batch(kind, _as_online(kind, _rows(db, kind)), lines, codes)
+        return _verify(db, kind, lines, codes)
+
+    @app.get("/api/v1/verify")
+    def verify_get(db: DB, kind: str = "ssq", lines: str = "", codes: str = ""):
+        """只读验奖（公开可访问）：票面以换行分隔、期号以逗号分隔，与 POST 共用同一判定函数。"""
+        return _verify(db, kind, lines.splitlines(), codes.split(","))
 
     @app.get("/api/v1/recommend")
     def recommend_ep(db: DB, kind: str = "ssq", seed: int = 1, groups: int = Query(7, ge=1, le=8)):

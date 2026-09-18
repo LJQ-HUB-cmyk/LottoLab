@@ -64,10 +64,12 @@ def queued_job(factory, **overrides):
         return job.id
 
 
-def test_cloud_config_enforces_public_defaults(monkeypatch, tmp_path):
+def test_cloud_config_defaults_to_public_when_admin_token_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("LOTTOLAB_ALLOW_LOCAL_WRITES=true\n", encoding="utf-8")
-    settings = vercel_settings({**cloud_env(), "LOTTOLAB_ALLOW_LOCAL_WRITES": "true"})
+    env = {**cloud_env(), "LOTTOLAB_ALLOW_LOCAL_WRITES": "true"}
+    env.pop("LOTTOLAB_ADMIN_TOKEN", None)
+    settings = vercel_settings(env)
     assert settings.database_url.startswith("postgresql+psycopg://")
     assert "sslmode=require" in settings.database_url
     assert not settings.allow_local_writes
@@ -80,6 +82,24 @@ def test_cloud_config_enforces_public_defaults(monkeypatch, tmp_path):
     assert settings.job_timeout_seconds == 240
     assert set(settings.origins) == {"https://lab.example", "https://preview.example"}
     assert settings.max_csv_bytes == 4 * 1024 * 1024
+
+
+def test_cloud_config_switches_to_private_write_with_admin_token(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("LOTTOLAB_ALLOW_LOCAL_WRITES=true\n", encoding="utf-8")
+    settings = vercel_settings({**cloud_env(), "LOTTOLAB_ALLOW_LOCAL_WRITES": "true"})
+    assert not settings.allow_local_writes
+    assert not settings.require_read_auth
+    assert not settings.public_mode
+    assert settings.admin_token == TOKEN
+    assert settings.execution_mode == "request"
+    assert settings.max_active_jobs == 1
+
+
+def test_cloud_config_ignores_short_admin_token():
+    settings = vercel_settings({**cloud_env(), "LOTTOLAB_ADMIN_TOKEN": "too-short"})
+    assert settings.public_mode
+    assert settings.admin_token == ""
 
 
 @pytest.mark.parametrize(

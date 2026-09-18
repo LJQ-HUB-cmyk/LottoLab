@@ -1,4 +1,9 @@
-"""Configuration for the public Vercel deployment (no admin token; host/CORS/size guards kept)."""
+"""Configuration for the Vercel deployment.
+
+Default is public read + public write (no admin token). When LOTTOLAB_ADMIN_TOKEN
+holds at least 32 characters, the deployment switches to public read + private
+write: GET stays open (require_read_auth=False) while POST requires the token.
+Host/CORS/size guards are kept in both modes."""
 
 import os
 import re
@@ -60,16 +65,21 @@ def vercel_settings(environ: Mapping[str, str] | None = None) -> Settings:
     timeout = env.get("LOTTOLAB_JOB_TIMEOUT_SECONDS", "240")
     if not timeout.isdigit() or not 1 <= int(timeout) <= 240:
         raise ValueError("云端单任务运行上限须为 1–240 秒，为函数收尾保留时间")
+    token = (env.get("LOTTOLAB_ADMIN_TOKEN", "") or "").strip()
+    if len(token) >= 32:
+        admin_token, public_mode = token, False
+    else:
+        admin_token, public_mode = "", True
     return VercelSettings(
         database_url=database,
-        admin_token="",
+        admin_token=admin_token,
         data_dir=Path(tempfile.gettempdir()) / "lottolab",
         frontend_dir=Path(__file__).resolve().parents[2] / "frontend/dist",
         allowed_hosts=",".join(sorted(hosts)),
         allowed_origins=",".join(sorted(origins)),
         allow_local_writes=False,
         require_read_auth=False,
-        public_mode=True,
+        public_mode=public_mode,
         execution_mode="request",
         snapshot_storage="database",
         job_timeout_seconds=int(timeout),

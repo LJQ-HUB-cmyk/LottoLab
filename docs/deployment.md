@@ -74,7 +74,7 @@ python scripts/migrate_cloud.py --apply
 | 环境变量 | 用途 |
 | :--- | :--- |
 | `LOTTOLAB_DATABASE_URL` | 必需，外部 PostgreSQL pooled 连接，启用 TLS |
-| `LOTTOLAB_ADMIN_TOKEN` | 可选：云端默认公开、忽略此项；如需私有部署再设为至少 32 字符随机串 |
+| `LOTTOLAB_ADMIN_TOKEN` | 可选：不设则云端公开读写；设为至少 32 字符随机串则切为公开读、私有写（查询/推荐/验奖GET免令牌，同步/导入/回测等POST需令牌） |
 | `LOTTOLAB_JOB_TIMEOUT_SECONDS` | 可选，默认 240，允许 1–240 |
 | `LOTTOLAB_ALLOWED_HOSTS` | 可选，附加自定义域名，逗号分隔，不含协议、路径或端口 |
 | `LOTTOLAB_ALLOWED_ORIGINS` | 可选，附加完整 HTTPS 来源，通常无需设置 |
@@ -124,7 +124,7 @@ python scripts/vercel_cli.py deploy --target preview
 | CSV 大小 | 8 MiB | 4 MiB |
 | CSV 行数 | 10,000 | 10,000 |
 | 原始快照 | 文件系统 | 压缩存入 PostgreSQL |
-| 数据访问 | 默认可读，写入规则由配置决定 | 默认公开读写（无令牌）；如需私有再配令牌 |
+| 数据访问 | 默认可读，写入规则由配置决定 | 未设令牌时公开读写；设令牌后公开读、私有写（验奖用GET免令牌） |
 
 云端无需常驻 worker。浏览器连接或函数运行被中断时，任务可能失败；重新鉴权后查看历史状态，不要假定断开的请求仍会完成。空闲数据库或函数唤醒可能增加首次响应时间。
 

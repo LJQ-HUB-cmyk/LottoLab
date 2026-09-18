@@ -175,12 +175,10 @@ export function OnlinePage() {
       return
     }
     try {
-      setVerify(
-        await api<VerifyResult>('/verify', {
-          method: 'POST',
-          body: JSON.stringify({ kind: lottery, lines, codes: codeList }),
-        }),
-      )
+      const query = new URLSearchParams({ kind: lottery })
+      query.set('lines', lines.join('\n'))
+      query.set('codes', codeList.join(','))
+      setVerify(await api<VerifyResult>(`/verify?${query.toString()}`))
     } catch (e) {
       setVerifyErr(e instanceof Error ? e.message : '验奖失败')
     }
@@ -263,6 +261,9 @@ export function OnlinePage() {
           </div>
         </div>
         <ErrorNote message={recommend.error} />
+        <p className="muted" style={{ marginTop: 0 }}>
+          期望提示：每注期望回报为负，推荐只做形态参考；先看下方策略回测，再决定要不要花钱。
+        </p>
         {recommend.loading && !recommend.data && <Loading />}
         {recommend.data &&
           (recommend.data.picks && recommend.data.picks.length ? (
@@ -426,7 +427,7 @@ export function OnlinePage() {
         {bet && (
           <p>
             {bet.formula} → <strong>{bet.bets}</strong> 注 · <strong>¥{bet.amount}</strong>
-            <span className="muted"> （{bet.note}）</span>
+            <span className="muted"> （{bet.note}；单期金额，追号/倍投另计）</span>
           </p>
         )}
       </article>
@@ -458,6 +459,11 @@ export function OnlinePage() {
         {predMsg && <p className="muted">{predMsg}</p>}
         {review && (
           <div>
+            {review.logged === 0 && (
+              <p className="muted" style={{ marginTop: 6 }}>
+                暂无台账记录：在上方填写目标期号，把当前推荐记一笔，开奖后再回来对账——空台账说明不了任何事。
+              </p>
+            )}
             <p className="muted" style={{ marginTop: 6 }}>
               台账 {review.logged} 条 · 已对账 {review.checked} 条 · 平均命中{' '}
               <strong>{review.avg_hit_main ?? '—'}</strong>（随机期望 {review.expected_hit}）· 中奖{' '}
