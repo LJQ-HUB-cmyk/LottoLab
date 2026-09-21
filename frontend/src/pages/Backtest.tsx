@@ -264,6 +264,7 @@ export function BacktestPage() {
                     <th>优势与 95% 区间</th>
                     <th>校正后 p 值</th>
                     <th>判定</th>
+                    <th>前后半对照</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -288,13 +289,32 @@ export function BacktestPage() {
                       <td>
                         <Verdict value={item.verdict} />
                       </td>
+                      <td>
+                        {item.stability ? (
+                          <>
+                            {item.stability.verdict === 'CONSISTENT'
+                              ? '一致'
+                              : item.stability.verdict === 'INCONSISTENT'
+                                ? '不一致'
+                                : '样本不足'}
+                            {item.stability.first_half != null && item.stability.second_half != null && (
+                              <small className="table-sub">
+                                [{item.stability.first_half.toFixed(5)},{' '}
+                                {item.stability.second_half.toFixed(5)}]
+                              </small>
+                            )}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="method-note">
-              {result.comparison_method}。本次结果不构成对未来预测能力的保证。
+              {result.comparison_method}。{result.stability_method}。本次结果不构成对未来预测能力的保证。
             </div>
           </Panel>
           <Panel title="累计平均 Brier" subtitle="比较相同测试期次内的累计损失，不以某一期命中代替长期评价。">
