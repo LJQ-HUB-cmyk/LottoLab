@@ -2,7 +2,7 @@
 # 只 INSERT ... ON CONFLICT DO NOTHING，绝不改动既有行；每彩种留 IngestionRun 溯源。
 # 与 shadow-parallel 互补：影子只比对不改生产，本作业负责把当日真实开奖正式入库。
 # 依赖仓库 secret：DATABASE_URL（Neon 连接串；缺失则本工作流失败）。
-name: daily-sync
+#####name: daily-sync
 on:
   schedule:
     - cron: "0 15 * * *"     # 15:00 UTC = 北京 23:00，各彩种当晚开奖与 17500 更新之后
