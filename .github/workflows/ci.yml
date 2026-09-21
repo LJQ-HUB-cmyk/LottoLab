@@ -1,4 +1,4 @@
-name: Verify LottoLab
+######name: Verify LottoLab
 on:
   push:
     branches: [main]
