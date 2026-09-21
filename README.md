@@ -27,7 +27,9 @@
 
 [![LottoLab 开奖观察：最新开奖、数据范围与号码频率](docs/assets/workbench.webp)](docs/assets/workbench.webp)
 
-<p align="center"><sub>实际运行界面。截图中的期数与结果来自该实例，仓库不附带历史数据库。</sub></p>
+[![LottoLab 在线工具演示：推荐、策略回测、预测复盘与验奖](docs/assets/demo.gif)](docs/assets/demo.gif)
+
+<p align="center"><sub>线上实例实拍（2026-09-21）。截图中的期数与结果来自该实例，仓库不附带历史数据库。</sub></p>
 
 <details>
 <summary>查看移动端界面</summary>
@@ -74,6 +76,40 @@
 | 中奖 | 1 次（稳健·热号中六等奖） |
 
 样本尚小（n=7），0.857 低于期望属于正常波动；命中率应长期贴近随机期望——这正是台账存在的意义：自证，不美化。
+
+## 架构
+
+```mermaid
+flowchart LR
+  subgraph Client["浏览器"]
+    UI["React 单页 · 9 页面<br/>PWA / 深色 / 移动端"]
+  end
+  subgraph Edge["入口"]
+    CF["Cloudflare<br/>DNS + POST 限流"]
+    API["FastAPI<br/>GET 公开读 / POST 鉴权<br/>120 次/分/IP"]
+  end
+  subgraph Compute["计算"]
+    W["独立 worker<br/>顺序执行 · 8 项/600秒"]
+    R["请求内计算<br/>1 项/240秒"]
+  end
+  subgraph Store["存储"]
+    L["SQLite<br/>本地"]
+    P["PostgreSQL 17<br/>Docker"]
+    N["Neon PostgreSQL<br/>Vercel"]
+  end
+  subgraph Jobs["每日作业"]
+    S["daily-sync<br/>8 彩种入库"]
+    WN["daily-winners<br/>注数销量刷新"]
+    RV["snapshot_review<br/>复盘快照"]
+  end
+  UP["17500 / cwl / sporttery<br/>+ CSV 导入"] --> S & WN
+  UI --> CF --> API
+  API --> W & R
+  W & R --> L & P & N
+  S & WN & RV --> P & N
+```
+
+本地/Docker 走独立 worker，Vercel 走请求内计算；快照本地存文件、云端压缩入库。实验一律冻结数据并记录种子与代码指纹。
 
 ## 快速开始
 
