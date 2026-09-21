@@ -93,6 +93,27 @@ def settle_reward(
     return None, False
 
 
+def half_split_stability(differences: np.ndarray) -> dict:
+    """测试窗前后半的平均优势对照（纯描述性，不做检验、不参与 verdict）。
+
+    两半同号记 CONSISTENT，否则 INCONSISTENT；半窗不足 10 期记 TOO_SHORT。
+    新增切分维度会扩大事后挑选空间，本字段只描述稳定性，不做任何决策依据。
+    """
+    n = len(differences)
+    if n < 20:
+        return {"verdict": "TOO_SHORT", "first_half": None, "second_half": None, "n": n}
+    cut = n // 2
+    first = float(np.mean(differences[:cut]))
+    second = float(np.mean(differences[cut:]))
+    same_sign = (first > 0 and second > 0) or (first < 0 and second < 0)
+    return {
+        "verdict": "CONSISTENT" if same_sign else "INCONSISTENT",
+        "first_half": first,
+        "second_half": second,
+        "n": n,
+    }
+
+
 def block_comparison(differences: np.ndarray, seed: int, samples: int) -> dict:
     size = len(differences)
     mean = float(np.mean(differences))
@@ -278,9 +299,11 @@ def run_backtest(
     for model in model_results:
         if model["model"] == "uniform":
             model["comparison"] = None
+            model["stability"] = None
             continue
         values = baseline - np.asarray([row["main_brier"] for row in all_records[model["model"]]])
         model["comparison"] = block_comparison(values, config.seed, config.bootstrap_samples)
+        model["stability"] = half_split_stability(values)
         comparisons.append(model)
     adjusted = adjust_pvalues([model["comparison"]["p_value"] for model in comparisons])
     for model, p_value in zip(comparisons, adjusted, strict=True):
@@ -309,9 +332,11 @@ def run_backtest(
         "packages": {name: importlib.metadata.version(name) for name in ("numpy", "scipy", "scikit-learn")},
         "primary_metric": "主区逐号码平均二元 Brier；优势 = 随机基线 Brier − 模型 Brier",
         "comparison_method": "按期开奖配对的循环移动块 bootstrap，中心化零假设，双侧 p 值；本次模型比较做 Bonferroni 校正",
+        "stability_method": "测试窗前后半平均优势对照，仅描述稳定性，不做检验、不参与 verdict",
         "limitations": [
             "95% 区间是名义区间，块 bootstrap 依赖局部平稳近似，不代表未来保证。",
             "超参数固定；没有使用测试区间调参，重复尝试不同配置仍需跨实验校正。",
+            "前后半对照只描述稳定性，不做显著性检验也不参与 verdict；新增切分维度会扩大事后挑选空间，跨实验解释仍需校正。",
             "基数一致性投影不是样本外概率校准的证明；校准图仅用于检验。",
             "收益只按 SSQ/DLT 历史奖金税前结算（基本投注口径，不含追加与派奖，不重算新增投注对分奖的影响）："
             "当期奖金表优先，DLT 固定奖按规则版本常量回退（2019-02-20 第19019期为界），"
