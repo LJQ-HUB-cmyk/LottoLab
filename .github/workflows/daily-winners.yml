@@ -1,7 +1,7 @@
 # 每日刷新各彩种真实一等奖注数 + 销量 → prizes['winner_count_1'] + sales，让撞号/冷门度实测随最新数据更新。
 # 主源 17500（data.17500.cn，GitHub runner 可达）；cwl/sporttery 为备源、境外可能不可达→优雅跳过。
 # 依赖仓库 secret：DATABASE_URL（Neon 连接串）。
-name: daily-winners
+###name: daily-winners
 on:
   schedule:
     - cron: "40 15 * * *"     # 每日 15:40 UTC（北京 23:40，daily-sync 之后）
