@@ -178,6 +178,12 @@ export interface ModelResult {
     adjusted_p_value: number
     effect_size: number
   } | null
+  stability: {
+    verdict: string
+    first_half: number | null
+    second_half: number | null
+    n: number
+  } | null
 }
 export interface PredictionRow {
   issue: string
@@ -200,6 +206,7 @@ export interface BacktestResult {
   feature_version: string
   primary_metric: string
   comparison_method: string
+  stability_method: string
   limitations: string[]
 }
 export interface SimulationResult {

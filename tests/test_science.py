@@ -5,7 +5,7 @@ from math import comb
 import numpy as np
 import pytest
 from lottolab.analysis import adjust_pvalues, overlap_pmf, randomness, simulate, sum_pmf, summarize, wilson
-from lottolab.backtest import run_backtest
+from lottolab.backtest import half_split_stability, run_backtest
 from lottolab.coldness import coldness
 from lottolab.domain import RULES
 from lottolab.ingestion import synthetic_records
@@ -150,6 +150,29 @@ def test_randomness_skips_empty_special_area():
     result = randomness(data, RULES["kl8"], trials=999, seed=1)
     assert all("附加区" not in t["name"] for t in result["tests"])
     assert result["number_of_tests"] > 0
+
+
+def test_half_split_stability_marks_sign_agreement():
+    same = half_split_stability(np.array([0.001] * 15 + [0.002] * 15))
+    assert same["verdict"] == "CONSISTENT"
+    assert same["first_half"] < same["second_half"] and same["n"] == 30
+    flipped = half_split_stability(np.array([0.001] * 15 + [-0.002] * 15))
+    assert flipped["verdict"] == "INCONSISTENT"
+    short = half_split_stability(np.array([0.001] * 10))
+    assert short["verdict"] == "TOO_SHORT"
+
+
+def test_backtest_result_carries_stability():
+    data = synthetic_records("ssq", 120, 5)
+    cfg = BacktestRequest(
+        models=["uniform", "frequency"], test_draws=20, training_window=80, bootstrap_samples=500
+    )
+    result = run_backtest(data, RULES["ssq"], cfg)
+    assert "stability_method" in result
+    by_id = {m["model"]: m for m in result["models"]}
+    assert by_id["uniform"]["stability"] is None
+    freq = by_id["frequency"]["stability"]
+    assert freq["n"] == 20 and set(freq) == {"verdict", "first_half", "second_half", "n"}
 
 
 def test_backtest_handles_empty_special_area():

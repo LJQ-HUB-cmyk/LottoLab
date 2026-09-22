@@ -27,7 +27,9 @@
 
 [![LottoLab 开奖观察：最新开奖、数据范围与号码频率](docs/assets/workbench.webp)](docs/assets/workbench.webp)
 
-<p align="center"><sub>实际运行界面。截图中的期数与结果来自该实例，仓库不附带历史数据库。</sub></p>
+[![LottoLab 在线工具演示：推荐、策略回测、预测复盘与验奖](docs/assets/demo.gif)](docs/assets/demo.gif)
+
+<p align="center"><sub>线上实例实拍（2026-09-21）。截图中的期数与结果来自该实例，仓库不附带历史数据库。</sub></p>
 
 <details>
 <summary>查看移动端界面</summary>
@@ -62,6 +64,52 @@
 **统计诚实**：独立性检验为 null；冷门度只对浮动奖有意义，且仅双色球有样本外验证的系数（大乐透/七乐彩拟合后样本外不成立、不发布）；一切只描述历史、不改变中奖概率。拟合函数（销量协变量 + 70/30 时序验证 + 安慰剂闸门）与全部中间结论可复现。
 
 界面提供深色主题和移动端布局，共 9 个页面：开奖观察、在线工具、开奖数据、统计检验、模型档案、滚动回测、随机模拟、组合覆盖、研究方法。真实数据与演示数据分开显示（演示期号以 `SIM-` 开头），数据来源、计算状态和实验限制随结果保留。
+
+## 实盘记录（快照，非承诺）
+
+每日同步后自动为双色球/大乐透登记推荐台账，开奖后自动对账。以下为线上实例快照（更新至 2026-09-21，台账持续累积，最新以站内“在线工具 → 预测复盘”为准）：
+
+| 指标 | 数值 |
+| :--- | :--- |
+| 台账 / 已对账 | 14 条 / 7 条 |
+| 平均命中（主区） | 0.857（随机期望 1.091） |
+| 中奖 | 1 次（稳健·热号中六等奖） |
+
+样本尚小（n=7），0.857 低于期望属于正常波动；命中率应长期贴近随机期望——这正是台账存在的意义：自证，不美化。
+
+## 架构
+
+```mermaid
+flowchart LR
+  subgraph Client["浏览器"]
+    UI["React 单页 · 9 页面<br/>PWA / 深色 / 移动端"]
+  end
+  subgraph Edge["入口"]
+    CF["Cloudflare<br/>DNS + POST 限流"]
+    API["FastAPI<br/>GET 公开读 / POST 鉴权<br/>120 次/分/IP"]
+  end
+  subgraph Compute["计算"]
+    W["独立 worker<br/>顺序执行 · 8 项/600秒"]
+    R["请求内计算<br/>1 项/240秒"]
+  end
+  subgraph Store["存储"]
+    L["SQLite<br/>本地"]
+    P["PostgreSQL 17<br/>Docker"]
+    N["Neon PostgreSQL<br/>Vercel"]
+  end
+  subgraph Jobs["每日作业"]
+    S["daily-sync<br/>8 彩种入库"]
+    WN["daily-winners<br/>注数销量刷新"]
+    RV["snapshot_review<br/>复盘快照"]
+  end
+  UP["17500 / cwl / sporttery<br/>+ CSV 导入"] --> S & WN
+  UI --> CF --> API
+  API --> W & R
+  W & R --> L & P & N
+  S & WN & RV --> P & N
+```
+
+本地/Docker 走独立 worker，Vercel 走请求内计算；快照本地存文件、云端压缩入库。实验一律冻结数据并记录种子与代码指纹。
 
 ## 快速开始
 

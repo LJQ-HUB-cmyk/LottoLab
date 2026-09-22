@@ -2,6 +2,11 @@
 
 记录已发布版本中影响使用和部署的变化。源码与固定版本下载见 [Releases](https://github.com/LeilaoMi/LottoLab/releases)。
 
+## [未发布]
+
+- **回测稳定性对照**：测试窗前后半平均优势对照（CONSISTENT / INCONSISTENT / TOO_SHORT），纯描述性，不做检验、不参与 verdict；回测页新增对照列。
+- **回测报告脚本**：`python scripts/export_report.py 报告.json` 把 JSON 导出渲染为 Markdown 摘要（打到控制台，自存 `.local/`，不进仓库）。
+
 ## [1.1.0](https://github.com/LeilaoMi/LottoLab/releases/tag/v1.1.0) · 2026-09-18
 
 8 彩种融合与安全加固版本（覆盖 8 个中国彩票，统一判定/验奖/注数/采集/推荐到单一后端）：
