@@ -3,7 +3,7 @@
 # 安全边界：对正式 draws 仅 SELECT；不做任何 DROP/DELETE/TRUNCATE；不影响站点与 ci.yml。
 # 依赖仓库 secret：DATABASE_URL（你的 Neon 连接串；缺失则本工作流会失败）。
 ###name: shadow-parallel
-on:
+###on:
   schedule:
     - cron: "45 13 * * *"     # 13:45 UTC = 北京 21:45，各彩种开奖落库之后
   workflow_dispatch: {}
