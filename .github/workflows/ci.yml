@@ -1,5 +1,5 @@
 ######name: Verify LottoLab
-on:
+###on:
   push:
     branches: [main]
   pull_request:
