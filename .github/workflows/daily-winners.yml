@@ -2,7 +2,7 @@
 # 主源 17500（data.17500.cn，GitHub runner 可达）；cwl/sporttery 为备源、境外可能不可达→优雅跳过。
 # 依赖仓库 secret：DATABASE_URL（Neon 连接串）。
 ###name: daily-winners
-on:
+####on:
   schedule:
     - cron: "40 15 * * *"     # 每日 15:40 UTC（北京 23:40，daily-sync 之后）
   workflow_dispatch: {}
